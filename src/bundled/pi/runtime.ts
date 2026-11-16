@@ -1345,6 +1345,7 @@ export class PiRuntime {
         reads,
         [event, ...unseen.slice(-CONTEXT_LIMIT)],
         signingAuthority,
+        owner,
       ),
       reading.then((read) => read?.section),
     ]);
@@ -1361,6 +1362,7 @@ export class PiRuntime {
       context: unseen,
       total: earlier.length + 1,
       names,
+      owner,
       ...(signingAuthority ? { signingAuthority } : {}),
       ...(project ? { project } : {}),
     };

@@ -1495,6 +1495,7 @@ export class ClaudeRuntime {
         reads,
         [event, ...unseen.slice(-CONTEXT_LIMIT)],
         signingAuthority,
+        owner,
       ),
       reading,
       referencedFolders(event, owner, reads?.scope),
@@ -1537,6 +1538,7 @@ export class ClaudeRuntime {
       contextRoot,
       total: earlier.length + 1,
       names,
+      owner,
       ...(signingAuthority ? { signingAuthority } : {}),
       ...(section ? { project: section } : {}),
     };
