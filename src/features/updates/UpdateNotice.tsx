@@ -35,7 +35,7 @@ export function UpdateNotice({ updates }: { updates: Updates }) {
     "installing",
   ].includes(state);
   const descriptions = {
-    idle: "Click to update",
+    idle: "",
     ready: "",
     installing: "Updating",
     checking: "Checking for updates...",
