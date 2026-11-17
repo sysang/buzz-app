@@ -20,6 +20,7 @@ import {
 import { PublishNotSent, PublishRejected } from "../../features/relay/outbox";
 import type { Role } from "../../features/communities/roster";
 import type { CommunityMembership } from "../moderation/membership";
+import type { ChannelDetailsCapability } from "../../features/relay/channel-details";
 
 afterEach(() => {
   cleanup();
@@ -148,6 +149,63 @@ it("does not invent unknown metadata and still exposes diagnostics without a cha
   expect(screen.queryByText("Channel ID")).not.toBeInTheDocument();
   await user.click(screen.getByText("Diagnostics"));
   expect(screen.getByText("Diagnostics content")).toBeVisible();
+});
+
+function detailsCapability(): ChannelDetailsCapability {
+  return {
+    available: true,
+    load: vi.fn(() => new Promise<never>(() => {})),
+    save: vi.fn(async () => {}),
+    check: vi.fn(async () => {}),
+    snapshot: () => undefined,
+    subscribe: () => () => {},
+  };
+}
+
+it("shows general access and opens members to change it", async () => {
+  const openMembers = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <ChannelSettingsPanel
+      scope="community:viewer"
+      channel={{
+        id: "alpha",
+        name: "Alpha",
+        channelType: "stream",
+        visibility: "public",
+      }}
+      details={detailsCapability()}
+      openMembers={openMembers}
+      close={() => {}}
+    >
+      Diagnostics
+    </ChannelSettingsPanel>,
+  );
+  const access = screen.getByRole("button", { name: "View general access" });
+  expect(access).toHaveAccessibleDescription("Public");
+  await user.click(access);
+  expect(openMembers).toHaveBeenCalledWith(access);
+});
+
+it("leaves general access out of an archived channel", () => {
+  render(
+    <ChannelSettingsPanel
+      scope="community:viewer"
+      channel={{
+        id: "alpha",
+        name: "Alpha",
+        channelType: "stream",
+        visibility: "public",
+        archived: true,
+      }}
+      details={detailsCapability()}
+      openMembers={() => {}}
+      close={() => {}}
+    >
+      Diagnostics
+    </ChannelSettingsPanel>,
+  );
+  expect(screen.queryByText("General access")).not.toBeInTheDocument();
 });
 
 it("opens even an empty members list without an Edit ingress", async () => {
