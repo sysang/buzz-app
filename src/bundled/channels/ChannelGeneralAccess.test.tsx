@@ -461,6 +461,19 @@ it("shows the absent Member default without saving, and a declined save reloads 
   expect(h.save).toHaveBeenCalledOnce();
   expect(screen.getByRole("region", { name: "General access" })).toHaveFocus();
 });
+it("leaves an unconfirmed details save to the details editor while keeping the choice locked", async () => {
+  const h = harness();
+  h.setAttempt({ draft: { ...base, name: "Renamed" }, status: "unconfirmed" });
+  render(<ChannelGeneralAccess capability={h.capability} channelId="alpha" />);
+  const access = await screen.findByRole("combobox", {
+    name: "General access",
+  });
+  await waitFor(() => expect(h.load).toHaveBeenCalled());
+  expect(access).toBeDisabled();
+  expect(
+    screen.queryByRole("group", { name: "General access recovery" }),
+  ).not.toBeInTheDocument();
+});
 it("locks the choice while saving and recovers an uncertain save after remount without resending", async () => {
   const h = harness();
   let release!: () => void;

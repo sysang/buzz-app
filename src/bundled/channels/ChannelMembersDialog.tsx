@@ -906,11 +906,10 @@ export function ChannelMembersDialog({
     canShareSoloChat(session, channel) &&
     session.channelWrites.available;
   const canAddPeople = solo ? share.eligible : canAddMembers(session, channel);
+  // Channels change access in Channel settings; Solo chats have no settings panel.
   const generalAccess =
     channel &&
-    (solo ||
-      channel.channelType === "stream" ||
-      channel.channelType === "forum") &&
+    solo &&
     !channel.cached &&
     !channel.archived &&
     (channel.readOnly || session.channelDetails.available);

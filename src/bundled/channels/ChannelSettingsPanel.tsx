@@ -21,10 +21,7 @@ import type { RelaySession } from "../../features/relay/session";
 import { MessageMarkdown } from "../../features/messages/MessageMarkdown";
 import { useReferenceDirectory } from "../../features/messages/ReferenceText";
 import { channelIcon } from "../../features/channels/channel-icon";
-import {
-  generalAccessOptions,
-  generalAccessValue,
-} from "../../features/channels/general-access";
+import { ChannelGeneralAccess } from "./ChannelGeneralAccess";
 import {
   GearIcon,
   CircleNotchIcon,
@@ -233,29 +230,6 @@ export function ChannelSettingsPanel({
                       membership={membership}
                     />
                   )}
-                {channel.visibility &&
-                  openMembers &&
-                  (channel.channelType === "stream" ||
-                    channel.channelType === "forum") &&
-                  !channel.cached &&
-                  !channel.archived &&
-                  (channel.readOnly || details?.available) && (
-                    <SettingsDetail
-                      label="General access"
-                      value={
-                        generalAccessOptions[
-                          generalAccessValue({
-                            visibility: channel.visibility,
-                            joinRole: channel.joinRole,
-                          })
-                        ].label
-                      }
-                      trailingIcon={
-                        <CaretRightIcon size={16} aria-hidden="true" />
-                      }
-                      onOpen={openMembers}
-                    />
-                  )}
                 {channel.members && (
                   <SettingsDetail
                     label="Members"
@@ -268,6 +242,20 @@ export function ChannelSettingsPanel({
                 )}
                 <ChannelIdDetail key={channel.id} id={channel.id} />
               </dl>
+              {details &&
+                (channel.channelType === "stream" ||
+                  channel.channelType === "forum") &&
+                !channel.cached &&
+                !channel.archived &&
+                (channel.readOnly || details.available) && (
+                  <ChannelGeneralAccess
+                    key={`access:${channel.id}`}
+                    capability={details}
+                    recovery={session?.recovery}
+                    channelId={channel.id}
+                    channel={channel}
+                  />
+                )}
             </>
           )}
           {editStatus}

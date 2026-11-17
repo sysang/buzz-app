@@ -329,7 +329,7 @@ it.each(["channel", "session"])(
 it("keeps details readable without editing authority or host support", async () => {
   const h = harness();
   const loaded = deferred<ChannelDetails>();
-  h.load.mockReturnValueOnce(loaded.promise);
+  h.load.mockReturnValue(loaded.promise);
   const { rerender } = render(
     <ChannelSettingsPanel
       scope="community:viewer"
@@ -421,6 +421,10 @@ it("orders metadata before actions and dismisses each edit layer with Escape", a
   await user.tab();
 
   expect(screen.getByRole("button", { name: "Copy channel id" })).toHaveFocus();
+  await user.tab();
+  expect(
+    screen.getByRole("combobox", { name: "General access" }),
+  ).toHaveFocus();
   await user.tab();
   expect(screen.getByRole("button", { name: "Leave channel" })).toHaveFocus();
   await user.click(edit);
@@ -583,7 +587,8 @@ it.each(["save", "check"] as const)(
     const action = await screen.findByRole("button", {
       name: operation === "check" ? "Check save status" : "Save changes",
     });
-    await waitFor(() => expect(h.load).toHaveBeenCalledOnce());
+    // Channel settings and its General access section each read the details.
+    await waitFor(() => expect(h.load).toHaveBeenCalledTimes(2));
     if (operation === "save")
       fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
         target: { value: draft.name },
@@ -1104,7 +1109,20 @@ it("renders status rows only when they have content, not an empty grid row besid
   expect(edit).toBeDisabled();
   expect(edit).toHaveAttribute("aria-busy", "true");
   expect(screen.queryByText(/Saving channel details/)).not.toBeInTheDocument();
-  act(() => h.setAttempt({ draft: base, status: "unconfirmed" }));
+  // General access reports its own unconfirmed saves beside this editor.
+  act(() =>
+    h.setAttempt({
+      draft: { ...base, visibility: "private" },
+      status: "unconfirmed",
+    }),
+  );
+  expect([...editor.children]).toEqual([edit]);
+  act(() =>
+    h.setAttempt({
+      draft: { ...base, name: "Renamed" },
+      status: "unconfirmed",
+    }),
+  );
   expect(within(editor).getByRole("status")).toHaveTextContent(
     "The change may have been saved",
   );

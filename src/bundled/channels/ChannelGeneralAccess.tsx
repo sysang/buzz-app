@@ -196,6 +196,10 @@ function ChannelGeneralAccessEditor({
     choice?.visibility !== "public" ||
     choice.joinRole === "guest";
   const access = base ? generalAccessValue(base) : "";
+  // Channel settings also shows the details editor, which reports its own saves.
+  const unconfirmed =
+    attempt?.status === "unconfirmed" &&
+    (!base || generalAccessValue(attempt.draft) !== access);
   const Icon =
     access === "public"
       ? GlobeIcon
@@ -424,7 +428,7 @@ function ChannelGeneralAccessEditor({
           {status}
         </p>
       </section>
-      {(error || attempt?.status === "unconfirmed") && (
+      {(error || unconfirmed) && (
         <fieldset
           aria-label="General access recovery"
           className={styles.accessFeedback}
@@ -434,7 +438,7 @@ function ChannelGeneralAccessEditor({
               {error}
             </p>
           )}
-          {attempt?.status === "unconfirmed" ? (
+          {unconfirmed ? (
             <>
               <p role="status" className="text-body-sm">
                 The change may have been saved. Check its status before trying

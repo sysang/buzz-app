@@ -21,6 +21,7 @@ import { PublishNotSent, PublishRejected } from "../../features/relay/outbox";
 import type { Role } from "../../features/communities/roster";
 import type { CommunityMembership } from "../moderation/membership";
 import type { ChannelDetailsCapability } from "../../features/relay/channel-details";
+import type { ChannelDetails } from "../../features/relay/channel-details-protocol";
 
 afterEach(() => {
   cleanup();
@@ -151,10 +152,55 @@ it("does not invent unknown metadata and still exposes diagnostics without a cha
   expect(screen.getByText("Diagnostics content")).toBeVisible();
 });
 
-function detailsCapability(): ChannelDetailsCapability {
+it.each([
+  ["private", "member", "Private"],
+  ["public", "guest", "View only"],
+  ["public", "member", "Public"],
+] as const)(
+  "changes %s/%s general access in Channel settings",
+  async (visibility, joinRole, label) => {
+    render(
+      <ChannelSettingsPanel
+        scope="community:viewer"
+        channel={{
+          id: "alpha",
+          name: "Alpha",
+          channelType: "stream",
+          visibility,
+          joinRole,
+        }}
+        details={detailsCapability(true, { visibility, joinRole })}
+        close={() => {}}
+      >
+        Diagnostics
+      </ChannelSettingsPanel>,
+    );
+    const access = await screen.findByRole("combobox", {
+      name: "General access",
+    });
+    await waitFor(() => expect(access).toBeEnabled());
+    expect(access).toHaveTextContent(label);
+  },
+);
+
+function detailsCapability(
+  available: boolean,
+  policy?: Pick<ChannelDetails, "visibility" | "joinRole">,
+): ChannelDetailsCapability {
   return {
-    available: true,
-    load: vi.fn(() => new Promise<never>(() => {})),
+    available,
+    load: vi.fn(async () =>
+      policy
+        ? {
+            channelId: "alpha",
+            version: "v1",
+            name: "Alpha",
+            description: "",
+            canEdit: true,
+            ...policy,
+          }
+        : new Promise<never>(() => {}),
+    ),
     save: vi.fn(async () => {}),
     check: vi.fn(async () => {}),
     snapshot: () => undefined,
@@ -162,32 +208,37 @@ function detailsCapability(): ChannelDetailsCapability {
   };
 }
 
-it("shows general access and opens members to change it", async () => {
-  const openMembers = vi.fn();
-  const user = userEvent.setup();
-  render(
-    <ChannelSettingsPanel
-      scope="community:viewer"
-      channel={{
-        id: "alpha",
-        name: "Alpha",
-        channelType: "stream",
-        visibility: "public",
-      }}
-      details={detailsCapability()}
-      openMembers={openMembers}
-      close={() => {}}
-    >
-      Diagnostics
-    </ChannelSettingsPanel>,
-  );
-  const access = screen.getByRole("button", { name: "View general access" });
-  expect(access).toHaveAccessibleDescription("Public");
-  await user.click(access);
-  expect(openMembers).toHaveBeenCalledWith(access);
-});
+it.each([
+  ["a DM", { channelType: "dm" }, true],
+  ["an archived channel", { archived: true }, true],
+  ["a cached channel", { cached: true }, true],
+  ["a connection without channel details", {}, false],
+] as const)(
+  "leaves general access out for %s",
+  (_, overrides, detailsAvailable) => {
+    render(
+      <ChannelSettingsPanel
+        scope="community:viewer"
+        channel={{
+          id: "alpha",
+          name: "Alpha",
+          channelType: "stream",
+          visibility: "public",
+          ...overrides,
+        }}
+        details={detailsCapability(detailsAvailable)}
+        close={() => {}}
+      >
+        Diagnostics
+      </ChannelSettingsPanel>,
+    );
+    expect(
+      screen.queryByRole("region", { name: "General access" }),
+    ).not.toBeInTheDocument();
+  },
+);
 
-it("leaves general access out of an archived channel", () => {
+it("explains general access read-only to previews", () => {
   render(
     <ChannelSettingsPanel
       scope="community:viewer"
@@ -196,16 +247,20 @@ it("leaves general access out of an archived channel", () => {
         name: "Alpha",
         channelType: "stream",
         visibility: "public",
-        archived: true,
+        joinRole: "guest",
+        readOnly: true,
       }}
-      details={detailsCapability()}
-      openMembers={() => {}}
+      details={detailsCapability(false)}
       close={() => {}}
     >
       Diagnostics
     </ChannelSettingsPanel>,
   );
-  expect(screen.queryByText("General access")).not.toBeInTheDocument();
+  const access = screen.getByRole("region", { name: "General access" });
+  expect(access).toHaveTextContent("Anyone in the community can read.");
+  expect(
+    screen.queryByRole("combobox", { name: "General access" }),
+  ).not.toBeInTheDocument();
 });
 
 it("opens even an empty members list without an Edit ingress", async () => {

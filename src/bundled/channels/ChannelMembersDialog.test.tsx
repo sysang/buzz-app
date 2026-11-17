@@ -366,7 +366,10 @@ async function setup(
 it.each(["Saving access…", "Searching…"])(
   "keeps %s outside busy member data during a refresh",
   async (announcement) => {
-    const h = await setup("stream", true);
+    const h = await setup(
+      announcement === "Saving access…" ? "solo" : "stream",
+      true,
+    );
     cleanup();
     const id = "11111111-1111-4111-8111-111111111111";
     let finishRefresh!: () => void;
@@ -553,21 +556,19 @@ it("keeps the same focused search input when a cached roster is confirmed", asyn
     const input = screen.getByRole("searchbox");
     await user.type(input, "Mor");
     expect(input).toHaveFocus();
-    expect(
-      screen.queryByRole("combobox", { name: "General access" }),
-    ).toBeNull();
     await act(async () => {
       confirm();
       await confirmation;
     });
-    await screen.findByRole("combobox", { name: "General access" });
-    expect(owner.session.channels.get?.(id)?.cached).toBeUndefined();
+    await vi.waitFor(() =>
+      expect(owner.session.channels.get?.(id)?.cached).toBeUndefined(),
+    );
     expect(screen.getByRole("searchbox")).toBe(input);
     expect(input).toHaveFocus();
     expect(input).toHaveValue("Mor");
     expect(
-      screen.getByRole("region", { name: "General access" }),
-    ).not.toContainElement(input);
+      screen.queryByRole("region", { name: "General access" }),
+    ).not.toBeInTheDocument();
     await user.keyboard("gan");
     expect(input).toHaveValue("Morgan");
     expect(publish).not.toHaveBeenCalled();
@@ -3389,199 +3390,159 @@ it("does not offer Solo agent additions when the existing admission API is unava
   expect(t.publish).not.toHaveBeenCalled();
 });
 
-it.each([false, true])(
-  "reads roster and general access after sign-in without replaying writes (sign-in before access refusal: %s)",
-  async (signInBeforeRefusal) => {
-    const t = await setup("stream", true);
-    t.fail("Invitation denied");
-    await t.user.click(await t.search());
-    await screen.findByText(/Invitation denied/);
-    const publishes = t.publish.mock.calls.length;
-    const query = t.query.getMockImplementation();
-    if (!query) throw new Error("Missing query fixture");
-    t.query.mockImplementation(async (filters, ...rest) => {
-      if (filters.some((filter) => filter.kinds?.includes(39002)))
-        throw new Error("Federated sign-in is required");
-      return query(filters, ...rest);
-    });
-    const id = "11111111-1111-4111-8111-111111111111";
-    const details = {
-      channelId: id,
-      version: "v1",
-      name: "Design",
-      description: "",
-      visibility: "private" as const,
-      joinRole: "guest" as const,
-      canEdit: true,
-    };
-    let refuse!: (reason: Error) => void;
-    const initial = new Promise<typeof details>((_, reject) => {
-      refuse = reject;
-    });
-    const load = vi
-      .fn(async () => details)
-      .mockImplementationOnce(() => initial);
-    const save = vi.fn(async () => {});
-    const check = vi.fn(async () => {});
-    cleanup();
-    try {
-      render(
-        <ToastProvider>
-          <ChannelMembersButton
-            session={{
-              ...t.session,
-              channelDetails: {
-                available: true,
-                load,
-                save,
-                check,
-                snapshot: () => undefined,
-                subscribe: () => () => {},
-              },
-            }}
-            channelId={id}
-          />
-        </ToastProvider>,
-      );
-      await t.user.click(screen.getByRole("button", { name: "Access" }));
-      await screen.findByText(/The member list could not load/);
-      await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(1));
-      const control = screen.getByRole("combobox", { name: "General access" });
-      expect(control).toBeDisabled();
-      t.query.mockImplementation(query);
-      if (signInBeforeRefusal) act(() => t.session.recovery?.retryAll());
-      act(() => refuse(new Error("Federated sign-in is required")));
-      if (!signInBeforeRefusal) {
-        await screen.findByText("Federated sign-in is required");
-        act(() => t.session.recovery?.retryAll());
-      }
-      await vi.waitFor(() => expect(control).toBeEnabled());
-      expect(control).toHaveTextContent("Private");
-      expect(load).toHaveBeenCalledTimes(2);
-      await vi.waitFor(() =>
-        expect(
-          screen.queryByText(/The member list could not load/),
-        ).not.toBeInTheDocument(),
-      );
-      expect(
-        screen.queryByRole("group", { name: "General access recovery" }),
-      ).not.toBeInTheDocument();
-      expect(t.publish.mock.calls.length).toBe(publishes);
-      expect(save).not.toHaveBeenCalled();
-      expect(check).not.toHaveBeenCalled();
-    } finally {
-      refuse(new Error("Fixture released"));
-    }
-  },
-);
+it("reads roster after sign-in without replaying writes or loading general access", async () => {
+  const t = await setup("stream", true);
+  t.fail("Invitation denied");
+  await t.user.click(await t.search());
+  await screen.findByText(/Invitation denied/);
+  const publishes = t.publish.mock.calls.length;
+  const query = t.query.getMockImplementation();
+  if (!query) throw new Error("Missing query fixture");
+  t.query.mockImplementation(async (filters, ...rest) => {
+    if (filters.some((filter) => filter.kinds?.includes(39002)))
+      throw new Error("Federated sign-in is required");
+    return query(filters, ...rest);
+  });
+  const id = "11111111-1111-4111-8111-111111111111";
+  const details = {
+    channelId: id,
+    version: "v1",
+    name: "Design",
+    description: "",
+    visibility: "private" as const,
+    joinRole: "guest" as const,
+    canEdit: true,
+  };
+  const load = vi.fn(async () => details);
+  const save = vi.fn(async () => {});
+  const check = vi.fn(async () => {});
+  cleanup();
+  render(
+    <ToastProvider>
+      <ChannelMembersButton
+        session={{
+          ...t.session,
+          channelDetails: {
+            available: true,
+            load,
+            save,
+            check,
+            snapshot: () => undefined,
+            subscribe: () => () => {},
+          },
+        }}
+        channelId={id}
+      />
+    </ToastProvider>,
+  );
+  await t.user.click(screen.getByRole("button", { name: "Access" }));
+  await screen.findByText(/The member list could not load/);
+  expect(
+    screen.queryByRole("region", { name: "General access" }),
+  ).not.toBeInTheDocument();
+  t.query.mockImplementation(query);
+  act(() => t.session.recovery?.retryAll());
+  await vi.waitFor(() =>
+    expect(
+      screen.queryByText(/The member list could not load/),
+    ).not.toBeInTheDocument(),
+  );
+  await vi.waitFor(() =>
+    expect(memberData()).toHaveAttribute("data-refreshing", "false"),
+  );
+  expect(within(memberData()).getAllByRole("listitem").length).toBeGreaterThan(
+    0,
+  );
+  expect(
+    screen.queryByRole("region", { name: "General access" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("group", { name: "General access recovery" }),
+  ).not.toBeInTheDocument();
+  expect(t.publish.mock.calls.length).toBe(publishes);
+  expect(load).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+  expect(check).not.toHaveBeenCalled();
+});
 
-it.each(["public", "private"] as const)(
-  "shows personal contribution roles and %s General access in the members dialog",
-  async (visibility) => {
-    const h = await setup();
-    cleanup();
-    const id = "11111111-1111-4111-8111-111111111111";
-    let role = "member";
-    const query = h.query.getMockImplementation();
-    if (!query) throw new Error("Missing query");
-    h.query.mockImplementation(async (filters) => [
-      ...(await query(filters)).map((event) =>
-        event.kind === 39002
-          ? signed(h.relay, {
-              ...event,
-              created_at: event.created_at + (role === "member" ? 1 : 2),
-              tags: [
-                ["d", id],
-                ["p", h.viewer.pubkey, "", role],
-              ],
-            })
-          : event,
-      ),
-      signed(h.relay, { kind: 39001, content: "", tags: [["d", id]] }),
-    ]);
-    const details = {
-      channelId: id,
-      version: "v1",
-      name: "Channel",
-      description: "",
-      visibility,
-      joinRole: "guest" as const,
-      canEdit: true,
-    };
-    const save = vi.fn(async () => {});
-    render(
-      <ToastProvider>
-        <ChannelMembersButton
-          session={{
-            ...h.session,
-            channelDetails: {
-              available: true,
-              load: async () => details,
-              save,
-              check: async () => {},
-              snapshot: () => undefined,
-              subscribe: () => () => {},
-            },
-          }}
-          channelId={id}
-        />
-      </ToastProvider>,
-    );
-    await h.user.click(screen.getByRole("button", { name: "Access" }));
-    expect(
-      await screen.findByRole("region", { name: "General access" }),
-    ).toBeVisible();
-    await vi.waitFor(() =>
-      expect(
-        screen.getByRole("combobox", { name: "General access" }),
-      ).toBeEnabled(),
-    );
-    expect(screen.getAllByRole("combobox")).toHaveLength(1);
-    expect(
-      screen.getByRole("combobox", { name: "General access" }),
-    ).toHaveTextContent(visibility === "public" ? "View only" : "Private");
-    const access = screen.getByRole("combobox", { name: "General access" });
-    const done = screen.getByRole("button", { name: "Done" });
-    const copy = screen.getByRole("button", { name: "Copy link" });
-    expect(copy.closest("footer")).toContainElement(done);
-    expect(access.closest("footer")).toBeNull();
-    const search = screen.getByRole("searchbox");
-    expect(
-      screen.getByRole("region", { name: "General access" }).parentElement,
-    ).toBe(screen.getByRole("region", { name: "Member list" }));
-    expect(
-      search.compareDocumentPosition(access) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(access).toHaveAttribute("data-size", "sm");
-    expect(
-      access.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    if (visibility === "private") {
-      expect(
-        screen.queryByText("Only people you add can read this channel."),
-      ).not.toBeInTheDocument();
-    }
-    await vi.waitFor(() => {
-      const members = h.session.memberAdministration.snapshot(id);
-      expect(members.status).toBe("ready");
-      expect(members.authority.roles[h.viewer.pubkey]).toBe("member");
-      expect(memberData()).toHaveAttribute("data-refreshing", "false");
-      expect(within(memberData()).getByText("Carl (you)")).toBeVisible();
-    });
-    expect(within(memberData()).queryAllByText("Participating")).toHaveLength(
-      0,
-    );
-    role = "guest";
-    await h.user.click(screen.getByRole("button", { name: "Close" }));
-    await h.user.click(screen.getByRole("button", { name: "Access" }));
-    expect(
-      await within(
-        screen.getByRole("region", { name: "Member list" }),
-      ).findByText("Viewing only"),
-    ).toBeVisible();
-    expect(save).not.toHaveBeenCalled();
-  },
-);
+it("shows personal contribution roles in the members dialog without General access", async () => {
+  const h = await setup();
+  cleanup();
+  const id = "11111111-1111-4111-8111-111111111111";
+  let role = "member";
+  const query = h.query.getMockImplementation();
+  if (!query) throw new Error("Missing query");
+  h.query.mockImplementation(async (filters) => [
+    ...(await query(filters)).map((event) =>
+      event.kind === 39002
+        ? signed(h.relay, {
+            ...event,
+            created_at: event.created_at + (role === "member" ? 1 : 2),
+            tags: [
+              ["d", id],
+              ["p", h.viewer.pubkey, "", role],
+            ],
+          })
+        : event,
+    ),
+    signed(h.relay, { kind: 39001, content: "", tags: [["d", id]] }),
+  ]);
+  const load = vi.fn(async () => ({
+    channelId: id,
+    version: "v1",
+    name: "Channel",
+    description: "",
+    visibility: "private" as const,
+    joinRole: "guest" as const,
+    canEdit: true,
+  }));
+  const save = vi.fn(async () => {});
+  render(
+    <ToastProvider>
+      <ChannelMembersButton
+        session={{
+          ...h.session,
+          channelDetails: {
+            available: true,
+            load,
+            save,
+            check: async () => {},
+            snapshot: () => undefined,
+            subscribe: () => () => {},
+          },
+        }}
+        channelId={id}
+      />
+    </ToastProvider>,
+  );
+  await h.user.click(screen.getByRole("button", { name: "Access" }));
+  const done = screen.getByRole("button", { name: "Done" });
+  const copy = screen.getByRole("button", { name: "Copy link" });
+  expect(copy.closest("footer")).toContainElement(done);
+  expect(screen.getByRole("searchbox")).toBeVisible();
+  await vi.waitFor(() => {
+    const members = h.session.memberAdministration.snapshot(id);
+    expect(members.status).toBe("ready");
+    expect(members.authority.roles[h.viewer.pubkey]).toBe("member");
+    expect(memberData()).toHaveAttribute("data-refreshing", "false");
+    expect(within(memberData()).getByText("Carl (you)")).toBeVisible();
+  });
+  expect(
+    screen.queryByRole("region", { name: "General access" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+  expect(within(memberData()).queryAllByText("Participating")).toHaveLength(0);
+  role = "guest";
+  await h.user.click(screen.getByRole("button", { name: "Close" }));
+  await h.user.click(screen.getByRole("button", { name: "Access" }));
+  expect(
+    await within(
+      screen.getByRole("region", { name: "Member list" }),
+    ).findByText("Viewing only"),
+  ).toBeVisible();
+  expect(load).not.toHaveBeenCalled();
+  expect(save).not.toHaveBeenCalled();
+});
 
 it.each([
   { solo: false, guest: false, joinRole: "guest" },
@@ -3680,7 +3641,11 @@ it.each([
       </ToastProvider>,
     );
     await user.click(screen.getByRole("button", { name: "Access" }));
-    expect(await screen.findByText(participation)).toBeVisible();
+    if (solo) expect(await screen.findByText(participation)).toBeVisible();
+    else
+      expect(
+        await screen.findByRole("region", { name: "Member list" }),
+      ).toBeVisible();
     expect(
       screen.queryByText("You have read-only access to this channel."),
     ).not.toBeInTheDocument();
@@ -3688,12 +3653,18 @@ it.each([
     expect(
       screen.queryByRole("button", { name: "Reload access" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "General access" }),
-    ).toHaveTextContent("Anyone in the community can read.");
-    expect(
-      screen.getByRole("region", { name: "General access" }),
-    ).toHaveTextContent(participation);
+    if (solo) {
+      expect(
+        screen.getByRole("region", { name: "General access" }),
+      ).toHaveTextContent("Anyone in the community can read.");
+      expect(
+        screen.getByRole("region", { name: "General access" }),
+      ).toHaveTextContent(participation);
+    } else {
+      expect(
+        screen.queryByRole("region", { name: "General access" }),
+      ).not.toBeInTheDocument();
+    }
     // Finish the roster read before checking that the dialog cannot invite or mutate.
     await vi.waitFor(() =>
       expect(

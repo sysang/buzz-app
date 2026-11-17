@@ -254,10 +254,17 @@ export function ChannelDetailsEditor({
       }
     }
   }
+  // Channel settings also shows General access, which reports its own saves.
+  const unconfirmed =
+    attempt?.status === "unconfirmed" &&
+    (!view.base ||
+      attempt.draft.name !== view.base.name ||
+      attempt.draft.description !== view.base.description ||
+      attempt.draft.ttlSeconds !== view.base.ttlSeconds);
   const status =
-    attempt?.status === "unconfirmed" || view.error ? (
+    unconfirmed || view.error ? (
       <div id={statusId} className={styles.detailsEditor}>
-        {attempt?.status === "unconfirmed" && (
+        {unconfirmed && (
           <p role="status">
             The change may have been saved. Check its status before trying
             again. Checking never resends it. Closing this dialog does not undo
