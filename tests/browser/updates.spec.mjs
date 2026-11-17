@@ -189,7 +189,11 @@ test("update checks recover from failure, download, and restart from the toast",
   await expect(status).toHaveText("Ready to install. Buzz will restart.");
   await button(page, "Appearance").click();
   await expect(notices.getByText("Ready to update!")).toBeVisible();
-  await expect(notices.getByText("Click to update")).toBeVisible();
+  // The visible title is the barrier: title and description commit together.
+  await expect(notices.getByText("Click to update")).toHaveCount(0);
+  await expect(
+    notices.getByRole("dialog", { name: "Ready to update!" }),
+  ).not.toHaveAttribute("aria-describedby");
   await notices
     .getByRole("button", { name: "Update now", exact: true })
     .click();

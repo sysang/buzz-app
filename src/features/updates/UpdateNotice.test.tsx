@@ -59,7 +59,11 @@ async function readyUpdate() {
 
 it("offers update and restart once the download is ready", async () => {
   const { update, install, relaunch } = await readyUpdate();
-  expect(screen.getByText("Click to update")).toBeVisible();
+  // Ready is title-only: no description text, element or accessible wiring.
+  const notice = screen.getByRole("dialog", { name: "Ready to update!" });
+  expect(screen.queryByText("Click to update")).not.toBeInTheDocument();
+  expect(notice).not.toHaveAttribute("aria-describedby");
+  expect(notice.querySelector("p")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "Update now" }));
   expect(await screen.findByText("Updating")).toBeVisible();
