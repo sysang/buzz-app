@@ -20,6 +20,56 @@ const CONNECTIONS: usize = 32;
 const HEAD_LIMIT: usize = 8192;
 const HEAD_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Peeks at `socket` for a `\r\n\r\n`-terminated head without consuming
+/// any bytes, within the same bounds as the HTTP head discipline
+/// ([`HEAD_LIMIT`] bytes and five seconds). Returns the complete head, or
+/// `None` when it cannot be confirmed within those bounds — the caller
+/// then closes the connection, as hyper's header timeout would for a
+/// plain-HTTP head that never completes. The whole head can be confirmed
+/// here up to [`HEAD_LIMIT`] bytes.
+async fn peek_head(socket: &tokio::net::TcpStream) -> Option<Vec<u8>> {
+    const DELIMITER: &[u8] = b"\r\n\r\n";
+    let deadline = tokio::time::Instant::now() + HEAD_TIMEOUT;
+    let mut head = Vec::with_capacity(2048);
+    let mut buffer = [0u8; HEAD_LIMIT];
+    let mut no_growth = 0usize;
+    loop {
+        let peeked = tokio::time::timeout_at(deadline, socket.peek(&mut buffer))
+            .await
+            .ok()?
+            .ok()?;
+        if peeked == 0 {
+            // The peer went away.
+            return None;
+        }
+        let take = peeked.min(HEAD_LIMIT);
+        if take > head.len() {
+            head.extend_from_slice(&buffer[head.len()..take]);
+            no_growth = 0;
+        } else {
+            // No progress on a repeated peek; bound the iterations.
+            no_growth += 1;
+            if no_growth >= 64 {
+                return None;
+            }
+        }
+        if let Some(end) = head
+            .windows(DELIMITER.len())
+            .position(|window| window == DELIMITER)
+        {
+            head.truncate(end + DELIMITER.len());
+            return Some(head);
+        }
+        if head.len() >= HEAD_LIMIT {
+            return None;
+        }
+        tokio::time::timeout_at(deadline, socket.readable())
+            .await
+            .ok()?
+            .ok()?;
+    }
+}
+
 /// The address a request's connection came from, in its extensions.
 #[derive(Clone, Copy)]
 pub(crate) struct Peer(pub(crate) std::net::SocketAddr);
@@ -40,6 +90,24 @@ where
     A: Fn(Request<Incoming>) -> F + Clone + Send + Sync + 'static,
     F: Future<Output = Result<Response<Full<Bytes>>, Infallible>> + Send + 'static,
 {
+    serve_with(listener, stop, answer, None).await;
+}
+
+/// Serves `listener` like [`serve`], additionally taking over connections
+/// whose head peeks as the bridge WebSocket upgrade (`WDA-S-03.1`): those are
+/// handshaken by the bridge before hyper parses anything, so every other
+/// request reaches hyper byte-identically. The probe duplicates the HTTP
+/// head discipline's bounds exactly ([`HEAD_LIMIT`], five seconds) and
+/// closes on violation.
+pub(crate) async fn serve_with<A, F>(
+    listener: std::net::TcpListener,
+    stop: CancellationToken,
+    answer: A,
+    upgrade: Option<std::sync::Arc<crate::bridge::BridgeUpgrade>>,
+) where
+    A: Fn(Request<Incoming>) -> F + Clone + Send + Sync + 'static,
+    F: Future<Output = Result<Response<Full<Bytes>>, Infallible>> + Send + 'static,
+{
     let Ok(listener) = TcpListener::from_std(listener) else {
         return;
     };
@@ -55,15 +123,54 @@ where
         let Some((permit, accepted)) = accepted else {
             return;
         };
-        let Ok((socket, peer)) = accepted else {
+        let Ok((mut socket, peer)) = accepted else {
             drop(permit);
             tokio::time::sleep(Duration::from_millis(100)).await;
             continue;
         };
         let (answer, stop) = (answer.clone(), stop.clone());
+        let upgrade_for_task = upgrade.clone();
         tauri::async_runtime::spawn(async move {
+            let upgrade = upgrade_for_task;
+            let guard = Arc::new(std::sync::Mutex::new(Some(permit)));
+            if let Some(upgrade) = &upgrade {
+                // Non-consuming head peek, exactly the head discipline's
+                // bounds ([`HEAD_LIMIT`], five seconds). A head that is not
+                // the bridge upgrade is left untouched for hyper to read.
+                match peek_head(&socket).await {
+                    Some(head) => {
+                        if upgrade.is_websocket(&head) {
+                            // The head was peeked, not read: consume exactly it;
+                            // anything after it stays for the WebSocket.
+                            let mut consumed = vec![0u8; head.len()];
+                            if tokio::io::AsyncReadExt::read_exact(&mut socket, &mut consumed)
+                                .await
+                                .is_err()
+                                || consumed != head
+                            {
+                                return;
+                            }
+                            let Some(permit) = guard
+                                .lock()
+                                .unwrap_or_else(|poison| poison.into_inner())
+                                .take()
+                            else {
+                                return;
+                            };
+                            upgrade
+                                .take_over(socket, consumed, permit, stop.clone())
+                                .await;
+                            return;
+                        }
+                    }
+                    None => return,
+                }
+            }
             // One request per connection. hyper drops a request whose client
-            // closes before its answer.
+            // closes before its answer. No response through this path is a
+            // `101` anymore (the pre-hyper probe owns every WebSocket
+            // upgrade), so hyper's `Connection: close` discipline applies
+            // exactly as it did before the bridge existed.
             let connection = http1::Builder::new()
                 .timer(TokioTimer::new())
                 .header_read_timeout(HEAD_TIMEOUT)
@@ -80,7 +187,14 @@ where
                 _ = connection => {}
                 () = stop.cancelled() => {}
             }
-            drop(permit);
+            // An upgraded connection's answer took the permit and moved it
+            // into its session; anything left here is the plain-HTTP case.
+            drop(
+                guard
+                    .lock()
+                    .unwrap_or_else(|poison| poison.into_inner())
+                    .take(),
+            );
         });
     }
 }

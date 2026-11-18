@@ -511,20 +511,40 @@ impl FederatedIdentity {
     pub(crate) fn snapshot(&self) -> Snapshot {
         self.state().snapshot.clone()
     }
-    pub(crate) fn watch<R: tauri::Runtime>(&self, app: tauri::AppHandle<R>) {
-        self.emit(app.clone(), "federated-identity");
+    pub(crate) fn watch<R: tauri::Runtime>(
+        &self,
+        app: tauri::AppHandle<R>,
+        publisher: crate::bridge_adapter::EventPublisher,
+    ) {
+        self.emit(app.clone(), publisher.clone(), "federated-identity");
         for peer in &self.0.peers {
-            peer.emit(app.clone(), "federated-identity-community");
+            peer.emit(
+                app.clone(),
+                publisher.clone(),
+                "federated-identity-community",
+            );
         }
         self.on_peer(Arc::new(move |peer| {
-            peer.emit(app.clone(), "federated-identity-community");
+            peer.emit(
+                app.clone(),
+                publisher.clone(),
+                "federated-identity-community",
+            );
         }));
     }
-    fn emit<R: tauri::Runtime>(&self, app: tauri::AppHandle<R>, event: &'static str) {
+    fn emit<R: tauri::Runtime>(
+        &self,
+        app: tauri::AppHandle<R>,
+        publisher: crate::bridge_adapter::EventPublisher,
+        event: &'static str,
+    ) {
         let mut changes = self.0.changes.subscribe();
         tauri::async_runtime::spawn(async move {
             while changes.changed().await.is_ok() {
                 let snapshot = changes.borrow_and_update().clone();
+                if let Ok(payload) = serde_json::to_value(&snapshot) {
+                    publisher.publish(event, payload);
+                }
                 let _ = app.emit_to("main", event, snapshot);
             }
         });

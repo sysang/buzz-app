@@ -12,17 +12,20 @@
 //! no `Origin` are admitted. A per-daemon-start bearer token is delivered
 //! only in the served entry page, after those checks pass, and is never
 //! logged. No local-process exclusion is claimed (`WDA-D07`, Postponed).
-//! The WebSocket upgrade/first-frame checks are WDA-WI-11 (after WDA-WI-08),
-//! and the bearer-401 HTTP API class lands with the first bearer-protected
-//! HTTP route (media metadata routes, WDA-WI-17); this listener has no
-//! API routes yet. The connection discipline beyond the shared loopback
-//! bounds is WDA-S-02.4 (WDA-WI-06); the served CSP is WDA-S-02.5, delivered
+//! The bridge WebSocket endpoint (`/bridge`) is WDA-WI-08's; the
+//! WebSocket-specific checks (exact Origin, token comparison, deadline and
+//! late-auth rejection) are WDA-WI-11's to add. The bearer-401 HTTP API
+//! class lands with the first bearer-protected HTTP route (media metadata
+//! routes, WDA-WI-17); this listener has no API routes yet. Connection
+//! discipline beyond shared loopback bounds is WDA-S-02.4 (WDA-WI-06); CSP
+//! is WDA-S-02.5, delivered
 //! as a real `Content-Security-Policy` response header on every response.
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
 use hyper::{header, Method, Request, Response, StatusCode};
 use std::convert::Infallible;
+use tauri::Manager as _;
 use tokio_util::sync::CancellationToken;
 use zeroize::Zeroizing;
 
@@ -108,7 +111,10 @@ fn whole(status: StatusCode, content_type: &'static str, body: Bytes) -> Respons
 /// exactly, so a browser visiting a foreign name pointed at loopback is
 /// refused before any route logic runs. `page/assets` loads carry no
 /// `Origin` and are admitted; a supplied `Origin` must be exact.
-struct Policy {
+/// `pub(crate)` so the bridge WebSocket endpoint can apply the same
+/// pre-upgrade gate; the WebSocket-specific `Origin` requirement is
+/// WDA-WI-11's to add, not this module's.
+pub(crate) struct Policy {
     /// `localhost:<port>` — the only exact `Host` admitted on any route.
     host: String,
     /// `http://localhost:<port>` — the only exact `Origin` admitted when present.
@@ -121,7 +127,9 @@ struct Policy {
 }
 
 impl Policy {
-    fn for_port(port: u16, token: Zeroizing<String>) -> Self {
+    /// Test-support visibility for other same-crate modules' wire tests
+    /// (bridge tests bind their own listener with a fixture policy).
+    pub(crate) fn for_port(port: u16, token: Zeroizing<String>) -> Self {
         Self {
             host: format!("localhost:{port}"),
             origin: format!("http://localhost:{port}"),
@@ -152,6 +160,32 @@ impl Policy {
 
     fn allows_origin(&self, origin: Option<&str>) -> bool {
         origin.map_or(true, |origin| origin == self.origin)
+    }
+
+    /// The single gate every route on this listener is admitted through:
+    /// exact Host, and a supplied Origin must be exact (absent admitted).
+    pub(crate) fn allows(&self, host: Option<&str>, origin: Option<&str>) -> bool {
+        self.allows_host(host) && self.allows_origin(origin)
+    }
+
+    /// Compare a presented bearer with the per-start secret. Keep bearer
+    /// matching owned by the policy so WS and future HTTP API routes share
+    /// one comparison source.
+    pub(crate) fn token_matches(&self, candidate: &str) -> bool {
+        let expected = self.token.as_bytes();
+        let supplied = candidate.as_bytes();
+        let mut difference = expected.len() ^ supplied.len();
+        for index in 0..expected.len().max(supplied.len()) {
+            difference |= usize::from(
+                expected.get(index).copied().unwrap_or_default()
+                    ^ supplied.get(index).copied().unwrap_or_default(),
+            );
+        }
+        difference == 0
+    }
+
+    pub(crate) fn csp(&self) -> &str {
+        &self.csp
     }
 }
 
@@ -185,11 +219,19 @@ fn respond(
     host: Option<&str>,
     origin: Option<&str>,
 ) -> Response<Full<Bytes>> {
-    let mut response = respond_inner(policy, lookup, method, path, host, origin);
-    // The policy string is fixed ASCII, so this only fails if the constant
-    // is malformed; fail closed on 'none' rather than serve an unprotected
-    // or headerless page.
-    let value = header::HeaderValue::from_str(&policy.csp)
+    with_csp(
+        &policy.csp,
+        respond_inner(policy, lookup, method, path, host, origin),
+    )
+}
+
+/// Applies the served `Content-Security-Policy` to a response. Every answer
+/// this listener gives — page, asset, rejection, or bridge protocol response
+/// — carries the policy as a real header. The policy string is fixed ASCII,
+/// so this only fails if the constant is malformed; fail closed on 'none'
+/// rather than serve an unprotected response.
+pub(crate) fn with_csp(csp: &str, mut response: Response<Full<Bytes>>) -> Response<Full<Bytes>> {
+    let value = header::HeaderValue::from_str(csp)
         .unwrap_or_else(|_| header::HeaderValue::from_static("default-src 'none'"));
     response
         .headers_mut()
@@ -265,7 +307,7 @@ fn respond_inner(
 /// represented as an empty (and therefore non-matching) value, never as an
 /// absent header; this matters for Origin, where only a genuinely absent
 /// header is admitted for page/assets.
-fn single_header<'a>(headers: &'a hyper::HeaderMap, name: &str) -> Option<&'a str> {
+pub(crate) fn single_header<'a>(headers: &'a hyper::HeaderMap, name: &str) -> Option<&'a str> {
     let mut values = headers.get_all(name).iter();
     let first = values.next()?;
     if values.next().is_some() {
@@ -284,10 +326,19 @@ pub(crate) fn start(app: &tauri::App<tauri::Wry>) -> Result<String, String> {
     let policy = std::sync::Arc::new(Policy::for_authority(&authority)?);
     let url = format!("http://{}/", policy.host);
     let resolver = std::sync::Arc::new(app.asset_resolver());
+    // One stop token for the whole listener and its bridge sessions, so
+    // cancelling it retires upgraded sockets too (production never cancels
+    // it; tests do).
+    let stop = CancellationToken::new();
+    let serve_stop = stop.clone();
+    let answer_policy = policy.clone();
     let answer = move |request: Request<Incoming>| {
         let resolver = resolver.clone();
-        let policy = policy.clone();
+        let policy = answer_policy.clone();
         async move {
+            if request.uri().path() == "/bridge" {
+                return Ok::<_, Infallible>(crate::bridge::respond(&policy, request));
+            }
             let host = single_header(request.headers(), "host").map(str::to_owned);
             let origin = single_header(request.headers(), "origin").map(str::to_owned);
             let lookup = move |key: &str| {
@@ -306,7 +357,22 @@ pub(crate) fn start(app: &tauri::App<tauri::Wry>) -> Result<String, String> {
             ))
         }
     };
-    tauri::async_runtime::spawn(loopback::serve(listener, CancellationToken::new(), answer));
+    tauri::async_runtime::spawn(loopback::serve_with(
+        listener,
+        serve_stop,
+        answer,
+        Some(std::sync::Arc::new(
+            crate::bridge::BridgeUpgrade::with_adapter(
+                policy,
+                std::sync::Arc::new(crate::bridge_adapter::HostAdapter::with_publisher(
+                    app.handle().clone(),
+                    app.state::<crate::bridge_adapter::EventPublisher>()
+                        .inner()
+                        .clone(),
+                )),
+            ),
+        )),
+    ));
     Ok(url)
 }
 

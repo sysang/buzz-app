@@ -3,6 +3,8 @@ mod archive;
 mod build_resources;
 mod federated_identity;
 use archive::relay_archive;
+mod bridge;
+mod bridge_adapter;
 mod browser;
 #[cfg(target_os = "macos")]
 mod close_menu;
@@ -1174,6 +1176,7 @@ fn run_with(context: tauri::Context<tauri::Wry>) {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(federated_identity.clone())
+        .manage(bridge_adapter::EventPublisher::default())
         .manage(federated_identity::access::Registrations::default())
         .manage(federated_identity::socket::Sockets::default())
         .setup(move |app| {
@@ -1202,8 +1205,12 @@ fn run_with(context: tauri::Context<tauri::Wry>) {
             quit_signal::install(app.handle());
             relay::set_user_agent(&app.package_info().version);
             relay::watch_refusals(app.handle().clone());
-            app.state::<federated_identity::FederatedIdentity>()
-                .watch(app.handle().clone());
+            app.state::<federated_identity::FederatedIdentity>().watch(
+                app.handle().clone(),
+                app.state::<bridge_adapter::EventPublisher>()
+                    .inner()
+                    .clone(),
+            );
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(error) = window_state::restore(&window.as_ref().window()) {
                     eprintln!("Could not restore Buzz window: {error}");

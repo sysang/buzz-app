@@ -144,6 +144,19 @@ pub(crate) async fn plugin_host_read_file(
     path: String,
     cwd: Option<String>,
 ) -> Result<tauri::ipc::Response, String> {
+    plugin_host_read_file_service(manager, id, revision, path, cwd)
+        .await
+        .map(tauri::ipc::Response::new)
+}
+
+/// Shared grant-checked file-read service used by desktop IPC and the bridge.
+pub(crate) async fn plugin_host_read_file_service(
+    manager: tauri::State<'_, PluginManager>,
+    id: String,
+    revision: String,
+    path: String,
+    cwd: Option<String>,
+) -> Result<Vec<u8>, String> {
     // Reserve before any await; a delete racing an admitted attachment read refuses.
     let lease = FileReadLease::new()?;
     granted(manager, id, revision).await?;
@@ -157,7 +170,6 @@ pub(crate) async fn plugin_host_read_file(
     )
     .await
     .map_err(|_| late)?
-    .map(tauri::ipc::Response::new)
 }
 
 /// Resolves a directory for a plugin that declares `host.files`, creating it

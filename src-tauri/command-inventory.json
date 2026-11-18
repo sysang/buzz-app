@@ -1,0 +1,3642 @@
+{
+  "schema_version": 1,
+  "permission_classes": [
+    "open",
+    "plugin_grant:<grant>",
+    "bearer",
+    "window_only"
+  ],
+  "rows": [
+    {
+      "name": "browser_attach",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser view is unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "browser_set_bounds",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser view/window bounds are unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "browser_set_media_suspended",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser view is unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "browser_detach",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser view/session is unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "browser_navigate",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser navigation is unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "browser_action",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser controls are unavailable in daemon mode; use browser navigation controls instead"
+      }
+    },
+    {
+      "name": "browser_status",
+      "group": "browser",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native embedded browser snapshot is unavailable in daemon mode; do not invoke"
+      }
+    },
+    {
+      "name": "mesh_compute_inventory",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:MeshHost",
+        "state:Identity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_status",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:MeshHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_stop",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:MeshHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_catalog",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_start",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:MeshHost",
+        "state:Identity"
+      ],
+      "permission_class": "bearer",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_select",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:MeshHost",
+        "state:Identity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_release",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:MeshHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_disarm",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:MeshHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_widget_open",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:MeshHost"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native widget window cannot be opened in daemon mode"
+      }
+    },
+    {
+      "name": "mesh_compute_widget_close",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native widget window cannot be controlled in daemon mode"
+      }
+    },
+    {
+      "name": "mesh_compute_widget_status",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:MeshHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native widget window status is unavailable in daemon mode"
+      }
+    },
+    {
+      "name": "mesh_compute_share",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_prepare_inference",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_inference_current",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "mesh_compute_chat",
+      "group": "mesh",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "credential_pair_answer",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:CredentialService"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "credential_pairing_communities",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:CredentialService"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "credential_pair_prompt",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:CredentialService"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "credential_pairings_list",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:CredentialService"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "credential_pairing_revoke",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:CredentialService"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_account",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_start",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Pairing",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_status",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Pairing"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_cancel",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Pairing"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_confirm",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Pairing"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "pairing_deny",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Pairing"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_restore",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_import",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_legacy_available",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_import_legacy",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_create",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_export",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_prepare_remote_agent_authorization",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "identity_sign_builderlab_binding",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_snapshot",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_servers",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_requires",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_ask_again",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_sign_in",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_cancel_sign_in",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_sign_in_link",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_sign_out",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:FederatedIdentity",
+        "state:AgentTokens"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_register",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:FederatedIdentity",
+        "state:Registrations"
+      ],
+      "permission_class": "plugin_grant:federated_identity",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_unregister",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Registrations"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "federated_identity_request",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:FederatedIdentity",
+        "state:Registrations",
+        "request"
+      ],
+      "permission_class": "plugin_grant:federated_identity",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_socket_connect",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Sockets",
+        "state:FederatedIdentity",
+        "state:IdentityHost",
+        "channel:SocketEvent"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits until socket closes, errors, expires, or is cancelled; sends a terminal Closed/Refused/Renew event when the pump ends",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_socket_start",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Sockets"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_socket_send",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Sockets"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_socket_close",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Sockets",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_available",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_confirmed",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_session",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_retry",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_state",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_watch",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:NsecBackupHost",
+        "channel:BackupStatus"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits status updates while the registered channel is live; the single stored watcher is replaced by a later watch; delivery failure/reload drops the channel",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: watch is tied to the main WebviewWindow and unavailable headless; the frontend must use a browser-side equivalent or poll state in daemon mode."
+      }
+    },
+    {
+      "name": "nsec_restore_begin",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:NsecBackupHost",
+        "state:IdentityHost",
+        "state:OAuthCallbackHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_restore_wait",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_restore_install",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_restore_cancel",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_choice",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "nsec_backup_set_choice",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:NsecBackupHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "draft_diagnostics_save",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "webview"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: requires the main Webview; disabled in daemon mode because no webview exists"
+      }
+    },
+    {
+      "name": "qr_code",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "share_image",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native sharing sheet/window is unavailable headless; suppress or replace with browser sharing behavior"
+      }
+    },
+    {
+      "name": "relay_workflow_runs",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_git_authorization",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_sign",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_decode_sidebar",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_sign_sidebar",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_decode_read_state",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_sign_read_state",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_verify_signatures",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_publish_read_state",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_http",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_http_cancel",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_upload_begin",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:Spools",
+        "state:Uploads"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_upload_chunk",
+      "group": "application",
+      "argument_encoding": "raw",
+      "required_headers": [
+        "x-buzz-upload-id",
+        "x-buzz-upload-offset"
+      ],
+      "injected_context": [
+        "app_handle",
+        "request",
+        "state:Spools",
+        "state:Uploads"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_upload",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [
+        "x-buzz-upload-id",
+        "x-buzz-community"
+      ],
+      "injected_context": [
+        "webview",
+        "state:FederatedIdentity",
+        "state:IdentityHost",
+        "state:Uploads",
+        "state:Spools",
+        "request"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "optional progress Channel<UploadSent> sends byte-progress while upload runs; channel is dropped when the invocation completes or errors",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_upload_cancel",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Uploads",
+        "state:Spools"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "file_download",
+      "group": "application",
+      "argument_encoding": "raw",
+      "required_headers": [
+        "x-buzz-file-name"
+      ],
+      "injected_context": [
+        "app_handle",
+        "request"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "media_download",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "webview",
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: implementation requires a Webview label to authorize the download; browser daemon mode must use browser-managed download behavior rather than invoke this native-view command"
+      }
+    },
+    {
+      "name": "media_copy_image",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-07.1: callable without a window, but writes the daemon host clipboard; daemon browser must use the browser Clipboard API instead"
+      }
+    },
+    {
+      "name": "media_lift_subject",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "raw",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "media_stream_base",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:MediaStream"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_channel_sign",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_channel_publish",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_kit_sign",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_kit_prepare",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_kit_decode",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_direct_message",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_decode_reminders",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_sign_reminder",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_project_git",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_project_git_cancel",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_agent_resolve",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_agent_log_proof",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_agent_observer",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_agent_memories_read",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview",
+        "state:IdentityHost",
+        "state:FederatedIdentity",
+        "channel:Value"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "optional on_page channel emits decoded page deltas while the read invocation is active; ends when the read completes, errors, or is cancelled",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: source command requires a Webview to bind the optional page channel; daemon mode must provide browser-side paging or call a non-streaming alternative"
+      }
+    },
+    {
+      "name": "relay_agent_library",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "huddle_open",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:IdentityHost",
+        "state:FederatedIdentity",
+        "state:AppAgentHost",
+        "state:Huddles",
+        "channel:Update"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits huddle state/audio updates until the huddle ends or is cancelled; sends terminal Ended update",
+      "headless": {
+        "available": true,
+        "degradation": "No window is injected; huddle audio remains the accepted S-08.2 loss and is not a daemon browser capability"
+      }
+    },
+    {
+      "name": "huddle_close",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Huddles"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "huddle_touch",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Huddles"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "huddle_pcm",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Huddles"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_admin_discover",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_admin_request",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_admin_attachment",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "raw",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "relay_admin_save_attachment",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-01.3: daemon configuration returns a cancelled-save result before fetching attachment bytes because no folder dialog window exists"
+      }
+    },
+    {
+      "name": "relay_archive",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:IdentityHost",
+        "state:ArchiveHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_run_command",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:commands",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_read_file",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:files",
+      "response_encoding": "raw",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_resolve_directory",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:files",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_repository_folders",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:files",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_save_bytes",
+      "group": "application",
+      "argument_encoding": "raw",
+      "required_headers": [
+        "x-buzz-plugin-id",
+        "x-buzz-plugin-revision",
+        "x-buzz-sha256"
+      ],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager",
+        "request"
+      ],
+      "permission_class": "plugin_grant:managed_files",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_delete_managed_file",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:managed_files",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_mcp_serve",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:HostMcpServers",
+        "channel:McpEvent"
+      ],
+      "permission_class": "plugin_grant:mcp",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits MCP events for the server/session lifetime; ends on server close, plugin/session teardown, or channel failure; includes the terminal closed event",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_mcp_authorize",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager",
+        "state:HostMcpServers"
+      ],
+      "permission_class": "plugin_grant:mcp",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_mcp_pairing",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager",
+        "state:HostMcpServers"
+      ],
+      "permission_class": "plugin_grant:mcp",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_mcp_reply",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostMcpServers"
+      ],
+      "permission_class": "plugin_grant:mcp",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_mcp_close",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostMcpServers"
+      ],
+      "permission_class": "plugin_grant:mcp",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_process_spawn",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:PluginManager",
+        "state:HostProcesses",
+        "channel:ProcessEvent"
+      ],
+      "permission_class": "plugin_grant:process",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits stdout/stderr and process lifecycle events while process runs; emits Exit when it exits, then channel is dropped",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_process_bind_agent",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostProcesses",
+        "state:CredentialService"
+      ],
+      "permission_class": "plugin_grant:process",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_process_tool_credential",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostProcesses",
+        "state:CredentialService"
+      ],
+      "permission_class": "plugin_grant:process",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_process_write",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostProcesses"
+      ],
+      "permission_class": "plugin_grant:process",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_process_kill",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:HostProcesses"
+      ],
+      "permission_class": "plugin_grant:process",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_call_context",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview",
+        "state:HostCalls"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "Requires current Webview label to resolve page-scoped call context; no webview exists in daemon mode (S-07.3)"
+      }
+    },
+    {
+      "name": "plugin_host_request",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview",
+        "state:HostCalls",
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:networkOrigins",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "Requires a Webview label for one-use call admission; no webview exists in daemon mode (S-07.3)"
+      }
+    },
+    {
+      "name": "plugin_host_upload_bytes_once",
+      "group": "application",
+      "argument_encoding": "raw",
+      "required_headers": [
+        "x-buzz-upload"
+      ],
+      "injected_context": [
+        "webview",
+        "state:HostCalls",
+        "state:PluginManager",
+        "request"
+      ],
+      "permission_class": "plugin_grant:networkOrigins",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "Requires Webview label for one-use admission; no webview exists in daemon mode (S-07.3)"
+      }
+    },
+    {
+      "name": "plugin_host_request_bytes",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:networkOrigins|publicImages",
+      "response_encoding": "raw",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_read_page",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:publicPages",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_host_upload",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "plugin_grant:files+networkOrigins",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_import_folder",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "state:Imports"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-01.3: runs without a window; in daemon mode an omitted upload is treated as cancelled and returns no preview"
+      }
+    },
+    {
+      "name": "plugin_update_check",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_update_preview",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:Imports"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_import_git",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:IdentityHost",
+        "state:FederatedIdentity",
+        "state:Imports",
+        "state:PluginManager"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_import_url",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Imports"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_import_install",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:Imports"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_import_discard",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Imports"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_catalog",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_managed_refresh",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_change",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:Registrations"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_reload",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:Registrations"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_module",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "plugin_recover",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:PluginManager",
+        "state:Registrations"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_create_owner",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_spawn",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_read",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "raw",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_write",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_resize",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_close",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "terminal_close_owner",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:Terminals"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_list",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_create",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_set_protection",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "May request a native owner-confirmation dialog for a one-way protection-storage upgrade; no Tauri window is injected"
+      }
+    },
+    {
+      "name": "app_agent_protection_defaults",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_set_protection_defaults",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "May request a native owner-confirmation dialog for a one-way protection-storage upgrade; no Tauri window is injected"
+      }
+    },
+    {
+      "name": "app_agent_portable",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_port",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost",
+        "state:IdentityHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_rename",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_set_type",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_set_picture",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_join",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_delete",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_begin_delete",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_begin_leave",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_hold_removal",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_release_removal",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_forget",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_claim",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_release",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_publish",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_publish_profile",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_query",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_search_profiles",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_upload",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_media",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_git_auth",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_remember",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AppAgentHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_state_load",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AgentState"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "app_agent_state_set",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:AgentState"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "claude_api_key_status",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:ClaudeKey"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "claude_api_key_set",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:ClaudeKey"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "claude_api_key_clear",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:ClaudeKey"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "jev_classifier_status",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:JevHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "jev_classifier_set_key",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:JevHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "jev_classifier_clear_key",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:JevHost"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "decide",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:JevHost",
+        "state:DecisionsHost",
+        "state:FederatedIdentity"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "onboarding_preserve_window",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native onboarding window presentation is unavailable in daemon mode"
+      }
+    },
+    {
+      "name": "huddle_window_reset_incoming",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: incoming Huddle presentation is tied to the main native window; huddle audio is an accepted loss"
+      }
+    },
+    {
+      "name": "huddle_window_open",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:HuddleWindow",
+        "channel:Control"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "receives Control actions while companion Huddle presentation is active; ends when the presentation/session closes",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: Huddle companion window cannot exist in daemon mode; huddle audio is an accepted loss"
+      }
+    },
+    {
+      "name": "huddle_window_update",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:HuddleWindow"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native Huddle window presentation is unavailable in daemon mode; huddle audio is an accepted loss"
+      }
+    },
+    {
+      "name": "huddle_window_watch",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:HuddleWindow",
+        "channel:View"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "sends initial view then updates while channel and presentation session remain live; ends on channel failure/session teardown",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: no native companion window in daemon mode; huddle audio is an accepted loss"
+      }
+    },
+    {
+      "name": "huddle_window_action",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:HuddleWindow"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native Huddle window controls are unavailable in daemon mode; huddle audio is an accepted loss"
+      }
+    },
+    {
+      "name": "deep_link_take",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:DeepLinks"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: deep-link delivery is an accepted loss and requires the native main window"
+      }
+    },
+    {
+      "name": "deep_link_watch",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window",
+        "state:DeepLinks",
+        "channel:Pending"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits pending deep links until the window watcher is replaced or the channel/window is torn down",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: deep-link watch requires the native main window; deep links are an accepted loss"
+      }
+    },
+    {
+      "name": "dock_permission",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native dock permission/window routing is unavailable in daemon mode"
+      }
+    },
+    {
+      "name": "unread_indicator_set",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native dock badge is unavailable in daemon mode"
+      }
+    },
+    {
+      "name": "notification_show",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle",
+        "webview_window",
+        "state:Notifications",
+        "channel:Response"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "emits one terminal activated/closed/failed response after OS notification interaction or submission failure",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.1/S-07.3: desktop notification command requires the main WebviewWindow; daemon mode uses the browser Notification API"
+      }
+    },
+    {
+      "name": "notification_permission_state",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "Registered only on macOS builds. S-07.1/S-07.3: native notification permission command requires the main WebviewWindow; daemon mode uses browser Notification API"
+      }
+    },
+    {
+      "name": "request_notification_access",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "Registered only on macOS builds. S-07.1/S-07.3: native notification permission request requires the main WebviewWindow; daemon mode uses browser Notification API"
+      }
+    },
+    {
+      "name": "clipboard_write_text",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-07.1: technically callable without a window but writes the daemon host clipboard; browser mode should use Clipboard API"
+      }
+    },
+    {
+      "name": "keep_awake_set",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "state:KeepAwake"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-07.1: technically callable without a window but controls host power inhibition; browser mode should use Wake Lock API"
+      }
+    },
+    {
+      "name": "get_os_idle_seconds",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "Returns None on Linux per implementation; no window required"
+      }
+    },
+    {
+      "name": "system_hour_cycle",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "Platform locale query; no window required"
+      }
+    },
+    {
+      "name": "media_lift_subject_supported",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "Pure capability probe; no window required"
+      }
+    },
+    {
+      "name": "workspace_pick_folder",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-01.3: daemon configuration has no windows, so folder selection is inert and returns None"
+      }
+    },
+    {
+      "name": "repositories_folder_validate",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "repositories_folder_list",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "local_skills_list",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "legacy_communities",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "title_bar_double_click",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "webview_window"
+      ],
+      "permission_class": "window_only",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": false,
+        "degradation": "S-07.3: native title-bar operation is suppressed/replaced in daemon mode"
+      }
+    },
+    {
+      "name": "update_restart",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "S-01.3: inert in daemon configuration; updater is not registered"
+      }
+    },
+    {
+      "name": "sign_out",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [
+        "app_handle"
+      ],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    },
+    {
+      "name": "sign_out_wipe_refusal",
+      "group": "application",
+      "argument_encoding": "json",
+      "required_headers": [],
+      "injected_context": [],
+      "permission_class": "open",
+      "response_encoding": "json",
+      "channel_lifecycle": "none",
+      "headless": {
+        "available": true,
+        "degradation": "none"
+      }
+    }
+  ]
+}

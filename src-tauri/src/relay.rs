@@ -1417,20 +1417,40 @@ pub(crate) async fn relay_upload_chunk<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     request: tauri::ipc::Request<'_>,
 ) -> Result<()> {
-    use tauri::Manager as _;
     let header = |name: &str| request.headers().get(name).and_then(|v| v.to_str().ok());
-    let id = upload_id(header("x-buzz-upload-id"))?.to_owned();
+    let body = match request.body() {
+        tauri::ipc::InvokeBody::Raw(body) => Some(body.as_slice()),
+        tauri::ipc::InvokeBody::Json(_) => None,
+    };
+    relay_upload_chunk_service(
+        app,
+        header("x-buzz-upload-id"),
+        header("x-buzz-upload-offset"),
+        body,
+    )
+    .await
+}
+
+/// Shared upload-chunk service reached by both desktop IPC and the headless
+/// bridge. The bridge supplies the same application headers and raw bytes that
+/// Tauri's Request exposes to the desktop command.
+pub(crate) async fn relay_upload_chunk_service<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    upload_id_header: Option<&str>,
+    offset_header: Option<&str>,
+    body: Option<&[u8]>,
+) -> Result<()> {
+    use tauri::Manager as _;
+    let id = upload_id(upload_id_header)?.to_owned();
     let chunk: Result<_> = (|| {
-        let offset = header("x-buzz-upload-offset")
-            .and_then(|v| v.parse::<usize>().ok())
+        let body = body.ok_or("Upload body must be raw bytes")?;
+        let offset = offset_header
+            .and_then(|value| value.parse::<usize>().ok())
             .ok_or("Invalid upload chunk")?;
-        let tauri::ipc::InvokeBody::Raw(body) = request.body() else {
-            return Err("Upload body must be raw bytes".into());
-        };
         if body.is_empty() || body.len() > UPLOAD_CHUNK {
             return Err("Invalid upload chunk".into());
         }
-        Ok((offset, body.clone()))
+        Ok((offset, body.to_vec()))
     })();
     tauri::async_runtime::spawn_blocking(move || {
         let spools = app.state::<Spools>();
