@@ -43,6 +43,7 @@ dist-buzz-mcp/
 src-tauri/resources/bin/*
 !src-tauri/resources/bin/.gitkeep
 
+.playwright-mcp/
 .codegraph/
 .pi/
 
