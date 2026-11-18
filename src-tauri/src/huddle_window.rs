@@ -306,6 +306,11 @@ pub(crate) async fn huddle_window_open<R: tauri::Runtime>(
     actions: Channel<Control>,
 ) -> Result<()> {
     require(&window, "main")?;
+    // The companion window can never exist in the daemon configuration;
+    // refuse before touching any state (WDA-S-01.3).
+    if window.app_handle().config().app.windows.is_empty() {
+        return Err("Huddles need a window; the daemon configuration has none".into());
+    }
     validate(&view)?;
     let incoming = view.phase == "incoming";
     let id = view.id.clone();

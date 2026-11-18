@@ -165,6 +165,11 @@ pub(crate) async fn relay_admin_save_attachment<R: tauri::Runtime>(
     context: Context,
     attachment: AttachmentRef,
 ) -> Result<Value, String> {
+    // The save dialog needs a window; inert in the daemon configuration,
+    // reported as a cancelled save before any network fetch (WDA-S-01.3).
+    if app.config().app.windows.is_empty() {
+        return Ok(json!({ "state": "cancelled" }));
+    }
     let discovered = super::discover(&context.relay).await;
     let bytes = match fetch(
         &Net::system(),

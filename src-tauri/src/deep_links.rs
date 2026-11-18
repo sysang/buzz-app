@@ -93,8 +93,15 @@ fn accept<R: tauri::Runtime>(app: &tauri::AppHandle<R>, raw: &str) {
 }
 
 /// Subscribe to the plugin and pick up a launch URL it already parsed.
-pub(crate) fn setup<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+/// In the daemon configuration (no webview windows) OS deep links have no
+/// consumer, so registration and subscription are skipped entirely: the
+/// browser session cannot receive an OS `buzz://` hand-off, and the daemon
+/// must not claim the scheme for a binary that cannot show it.
+pub(crate) fn setup<R: tauri::Runtime>(app: &tauri::AppHandle<R>, headless: bool) {
     use tauri_plugin_deep_link::DeepLinkExt;
+    if headless {
+        return;
+    }
     let handle = app.clone();
     app.deep_link().on_open_url(move |event| {
         for url in event.urls() {

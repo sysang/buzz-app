@@ -326,6 +326,11 @@ async fn workspace_pick_folder<R: tauri::Runtime>(
     title: Option<String>,
     start: Option<String>,
 ) -> Result<Option<String>, String> {
+    // Folder dialogs need a window; in the daemon configuration they are
+    // inert, reporting the same outcome as a cancelled pick (WDA-S-01.3).
+    if app.config().app.windows.is_empty() {
+        return Ok(None);
+    }
     // Open at the current choice, or its nearest existing parent ("~" is home).
     let home = app.path().home_dir().ok();
     let start = start.and_then(|path| {
@@ -360,9 +365,14 @@ async fn plugin_import_folder<R: tauri::Runtime>(
     imports: tauri::State<'_, Imports>,
     upload: Option<FolderUpload>,
 ) -> Result<Option<Preview>, String> {
+    let headless = app.config().app.windows.is_empty();
     prepare_import(imports.inner().clone(), move || {
         if let Some(upload) = upload {
             return prepare_upload(upload).map(Some);
+        }
+        // Folder dialogs are inert in the daemon configuration (WDA-S-01.3).
+        if headless {
+            return Ok(None);
         }
         app.dialog()
             .file()
@@ -703,6 +713,12 @@ async fn plugin_recover(
 }
 #[tauri::command]
 async fn update_restart<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    // Restart prompts are window-oriented; inert in the daemon configuration
+    // (WDA-S-01.3). The updater plugin is not registered there at all.
+    if app.config().app.windows.is_empty() {
+        eprintln!("update_restart is inert in the daemon configuration");
+        return Ok(());
+    }
     relaunch::request(&app);
     Ok(())
 }
@@ -925,12 +941,154 @@ fn register_spellcheck_default() {
     unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
 }
 
+/// Keeps this instance's claim on the shared identity and state directories
+/// for the process lifetime (WDA-S-01.5: exactly one configuration owns them).
+struct Ownership(
+    // Never read: the held file lock is the point.
+    #[allow(dead_code)] std::fs::File,
+);
+
+/// Who may own the shared identity and state directories at a time: exactly
+/// one of the two configurations (WDA-S-01.5). One lock file is shared by the
+/// desktop and daemon entries; the daemon takes it exclusively and the
+/// desktop shared, so the OS lock itself distinguishes the two configurations
+/// and desktop instances keep their existing coexistence.
+enum OwnershipClaim {
+    /// This instance holds the lock and owns the shared directories.
+    Own(std::fs::File),
+    /// The claim cannot be honored (the other configuration holds it, or the
+    /// lock cannot be operated at all). The caller refuses to start.
+    Refused(String),
+}
+
+fn ownership_lock_path(base: &std::path::Path, identifier: &str) -> std::path::PathBuf {
+    base.join(format!(".{identifier}.owner.lock"))
+}
+
+/// Claim the shared identity/state directories for exactly one
+/// configuration, or say why not. The daemon takes the lock exclusively and
+/// the desktop shared, so shared claims coexist with each other while an
+/// exclusive claim holds them off, and vice versa (WDA-S-01.5). Fails closed:
+/// a lock that cannot be operated or acquired refuses the start.
+/// Side-effect free apart from the lock file itself, so both entries and the
+/// tests can exercise it.
+fn claim_ownership_in(base: &std::path::Path, identifier: &str, daemon: bool) -> OwnershipClaim {
+    let refuse = |why: String| {
+        OwnershipClaim::Refused(format!(
+            "buzz: {why}. Quit the other Buzz first, then try again."
+        ))
+    };
+    if let Err(error) = std::fs::create_dir_all(base) {
+        return refuse(format!(
+            "could not create the user data directory {}: {error}",
+            base.display()
+        ));
+    }
+    let path = ownership_lock_path(base, identifier);
+    let file = match std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(&path)
+    {
+        Ok(file) => file,
+        Err(error) => {
+            return refuse(format!(
+                "could not open the shared ownership lock at {}: {error}",
+                path.display()
+            ));
+        }
+    };
+    // `File::try_lock`/`File::try_lock_shared` are Rust 1.89; sign_out.rs uses
+    // the same calls. A shared claim fails only against a held exclusive lock
+    // (a daemon: desktops never take it exclusively); an exclusive claim fails
+    // against any held lock.
+    #[allow(clippy::incompatible_msrv)]
+    let result = if daemon {
+        file.try_lock()
+    } else {
+        file.try_lock_shared()
+    };
+    if let Err(error) = result {
+        let why = match &error {
+            std::fs::TryLockError::WouldBlock => {
+                if daemon {
+                    format!(
+                        "another Buzz instance owns the shared identity and state directories ({} locked)",
+                        path.display()
+                    )
+                } else {
+                    format!(
+                        "a running Buzz daemon owns the shared identity and state directories ({} locked)",
+                        path.display()
+                    )
+                }
+            }
+            std::fs::TryLockError::Error(error) => format!(
+                "could not operate the shared ownership lock at {}: {error}",
+                path.display()
+            ),
+        };
+        return refuse(why);
+    }
+    OwnershipClaim::Own(file)
+}
+
+/// Claim the shared identity/state directories before any identity, sign-out
+/// or storage work, or exit with a clear message. Exactly one configuration
+/// owns them at a time (WDA-S-01.5): the daemon refuses to start when a
+/// desktop or another daemon holds them; the desktop refuses only when the
+/// daemon holds them (or the lock cannot be operated); otherwise the desktop
+/// claims shared and its ordinary single-instance behavior is unchanged.
+fn claim_shared_ownership(identifier: &str, daemon: bool) -> std::fs::File {
+    let Some(base) = dirs::data_dir() else {
+        eprintln!("buzz: could not resolve the user data directory; Buzz will not start and touch shared state without it.");
+        std::process::exit(1);
+    };
+    match claim_ownership_in(&base, identifier, daemon) {
+        OwnershipClaim::Own(file) => file,
+        OwnershipClaim::Refused(message) => {
+            eprintln!("{message}");
+            std::process::exit(1);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     credential_service::drop_inherited();
+    run_with(app_context())
+}
+
+/// The daemon's window-less context (WDA-S-01.1): the same host context as
+/// the desktop application with every window cleared in host code, so no
+/// embedded configuration can create a webview. The runtime enforcement here
+/// is authoritative.
+fn daemon_context<R: tauri::Runtime>() -> tauri::Context<R> {
+    let mut context = app_context();
+    context.config_mut().app.windows.clear();
+    context
+}
+
+/// The daemon runtime entry (WDA-S-01.1): the same Tauri host as the desktop
+/// application, with zero webview windows and a long-lived event loop, started
+/// by `buzz --daemon`.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run_daemon() {
+    credential_service::drop_inherited();
+    run_with(daemon_context())
+}
+
+fn run_with(context: tauri::Context<tauri::Wry>) {
     #[cfg(target_os = "macos")]
     register_spellcheck_default();
-    let context = app_context();
+    // Window-less run: every window-oriented behavior below is guarded by this.
+    let headless = context.config().app.windows.is_empty();
+    // Exactly one of the two configurations owns the shared identity and state
+    // directories at a time, claimed before any sign-out, identity or storage
+    // work below (WDA-S-01.5). Held for the process lifetime via the builder.
+    let ownership = claim_shared_ownership(&context.config().identifier, headless);
     // Reject unsafe test launch settings before any identity or pending erase work.
     let native_mcp = native_mcp::plugin(
         context.config(),
@@ -986,8 +1144,15 @@ pub fn run() {
         // feature forwards deep-link argv on Windows/Linux. macOS OS URLs reach
         // the registered bundle directly; cross-copy URL handoff is unsupported.
         // This callback only foregrounds the running window. Development launches
-        // skip this so parallel worktrees can run side by side.
-        builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        // skip this so parallel worktrees can run side by side. Cross-mode
+        // exclusion is enforced by the shared ownership lock claimed above; the
+        // callback in the daemon configuration has no window to foreground
+        // (WDA-S-01.3), so it reports the refused start in the daemon's log.
+        builder.plugin(tauri_plugin_single_instance::init(move |app, _args, _cwd| {
+            if headless {
+                eprintln!("buzz: another Buzz instance start was refused; the running instance owns the shared identity and state directories");
+                return;
+            }
             deep_links::focus_main(app);
         }))
     } else {
@@ -998,9 +1163,12 @@ pub fn run() {
     } else {
         builder
     };
+    let mut builder = builder.plugin(window_controls::init());
+    // Window-state restore/save is window-oriented: inert in the daemon.
+    if !headless {
+        builder = builder.plugin(window_state::builder().build());
+    }
     let builder = builder
-        .plugin(window_controls::init())
-        .plugin(window_state::builder().build())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -1045,13 +1213,15 @@ pub fn run() {
                 }
             }
             #[cfg(target_os = "macos")]
-            notifications::macos::init();
+            if !headless {
+                notifications::macos::init();
+            }
             #[cfg(target_os = "macos")]
-            mouse_nav::install(app.handle());
-            #[cfg(target_os = "macos")]
-            reshow::install(app.handle());
-            #[cfg(target_os = "macos")]
-            gpu_reaper::install(app.handle());
+            if !headless {
+                mouse_nav::install(app.handle());
+                reshow::install(app.handle());
+                gpu_reaper::install(app.handle());
+            }
             #[cfg(target_os = "macos")]
             if let Some(home) = dirs::home_dir() {
                 if let Err(error) = legacy_cli_shortcut::remove_stale(&home.join(".local/bin")) {
@@ -1081,7 +1251,7 @@ pub fn run() {
             if let Ok(manager) = &app.state::<PluginManager>().0 {
                 packaged_plugins::spawn(manager.clone());
             }
-            deep_links::setup(app.handle());
+            deep_links::setup(app.handle(), headless);
             mesh_compute::setup(app.handle());
             app.manage(relay::Spools::new(
                 app.path()
@@ -1113,23 +1283,25 @@ pub fn run() {
                 Err(error) => eprintln!("Could not start the media listener: {error}"),
             }
             #[cfg(target_os = "macos")]
-            if let Some(main) = app.get_webview_window("main") {
-                let handle = app.handle().clone();
-                let directory = app.path().download_dir().ok();
-                let stream = app
-                    .try_state::<relay::MediaStream>()
-                    .map(|stream| stream.base().to_owned());
-                // Packaged builds keep `devUrl` in their config but never load it.
-                let dev = app
-                    .config()
-                    .build
-                    .dev_url
-                    .clone()
-                    .filter(|_| tauri::is_dev());
-                if let Err(error) = main.with_webview(move |webview| {
-                    media_context_menu::install(&webview, handle, directory, stream, dev)
-                }) {
-                    eprintln!("Could not prepare the media menu: {error}");
+            if !headless {
+                if let Some(main) = app.get_webview_window("main") {
+                    let handle = app.handle().clone();
+                    let directory = app.path().download_dir().ok();
+                    let stream = app
+                        .try_state::<relay::MediaStream>()
+                        .map(|stream| stream.base().to_owned());
+                    // Packaged builds keep `devUrl` in their config but never load it.
+                    let dev = app
+                        .config()
+                        .build
+                        .dev_url
+                        .clone()
+                        .filter(|_| tauri::is_dev());
+                    if let Err(error) = main.with_webview(move |webview| {
+                        media_context_menu::install(&webview, handle, directory, stream, dev)
+                    }) {
+                        eprintln!("Could not prepare the media menu: {error}");
+                    }
                 }
             }
             // Only app-owned storage is created; a development build keeps its agents
@@ -1221,12 +1393,20 @@ pub fn run() {
             kind,
         )
     });
+    // The close-menu registers application-level menu accelerators, which no
+    // browser session can consume in the daemon configuration (WDA-S-01.3).
     #[cfg(target_os = "macos")]
-    let builder = builder
-        .manage(TitleBarFillFrames::default())
-        .menu(close_menu::menu)
-        .on_menu_event(close_menu::handle);
+    let builder = if headless {
+        builder.manage(TitleBarFillFrames::default())
+    } else {
+        builder
+            .manage(TitleBarFillFrames::default())
+            .menu(close_menu::menu)
+            .on_menu_event(close_menu::handle)
+    };
     // Register the updater only in configured release builds; omit it locally.
+    // The daemon registers it too only in such builds, but update_restart is
+    // inert there (WDA-S-01.3), so the prompt never reaches a window.
     #[cfg(buzz_updater_enabled)]
     let builder = if tauri::is_dev() {
         builder
@@ -1237,6 +1417,10 @@ pub fn run() {
         Some(instance) => builder.manage(instance),
         None => builder,
     };
+    // Keep this instance's claim on the shared identity and state directories
+    // held until the process exits (WDA-S-01.5); desktop claims are shared, so
+    // running desktops hold them together while excluding the daemon.
+    let builder = builder.manage(Ownership(ownership));
     builder
         .manage(clipboard::Clipboard::default())
         .manage(mesh_compute::identity(identity.clone()))
@@ -1407,6 +1591,119 @@ fn app_context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 #[cfg(test)]
 mod tests {
+    /// WDA-S-01.1: `run_daemon` builds its context through `daemon_context`,
+    /// which yields the same host with zero webview windows: no configuration
+    /// window exists, so no addressable window can be created.
+    #[test]
+    fn the_daemon_context_builds_with_no_windows() {
+        let context = super::daemon_context();
+        assert!(context.config().app.windows.is_empty());
+        let app = tauri::test::mock_builder().build(context).unwrap();
+        use tauri::Manager as _;
+        assert!(app.config().app.windows.is_empty());
+        assert!(app.get_webview_window("main").is_none());
+    }
+
+    fn ownership_base(tag: &str) -> std::path::PathBuf {
+        let base =
+            std::env::temp_dir().join(format!("buzz-ownership-test-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        base
+    }
+
+    const OWNER_IDENTIFIER: &str = "xyz.block.buzz.test";
+
+    /// WDA-S-01.5: one configuration owns the shared identity and state
+    /// directories at a time; the daemon never coexists with another
+    /// claimant, in either start order.
+    #[test]
+    fn a_daemon_claim_excludes_the_desktop_and_the_second_daemon() {
+        let base = ownership_base("daemon-first");
+        let first = super::claim_ownership_in(&base, OWNER_IDENTIFIER, true);
+        assert!(matches!(first, super::OwnershipClaim::Own(_)));
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, true),
+            super::OwnershipClaim::Refused(_)
+        ));
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, false),
+            super::OwnershipClaim::Refused(_)
+        ));
+        drop(first);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// WDA-S-01.5, other start order: a desktop that claimed first excludes
+    /// the daemon; the daemon refuses with a message.
+    #[test]
+    fn a_desktop_claim_excludes_the_daemon() {
+        let base = ownership_base("desktop-first");
+        let first = super::claim_ownership_in(&base, OWNER_IDENTIFIER, false);
+        assert!(matches!(first, super::OwnershipClaim::Own(_)));
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, true),
+            super::OwnershipClaim::Refused(_)
+        ));
+        drop(first);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// Desktop claims are shared, so any number of desktop instances hold
+    /// the claim at once; their ordinary single-instance behavior is
+    /// unchanged, and only an exclusive (daemon) claim is excluded by them.
+    #[test]
+    fn multiple_desktop_claims_coexist() {
+        let base = ownership_base("desktop-coexist");
+        let first = super::claim_ownership_in(&base, OWNER_IDENTIFIER, false);
+        let second = super::claim_ownership_in(&base, OWNER_IDENTIFIER, false);
+        let third = super::claim_ownership_in(&base, OWNER_IDENTIFIER, false);
+        assert!(matches!(first, super::OwnershipClaim::Own(_)));
+        assert!(matches!(second, super::OwnershipClaim::Own(_)));
+        assert!(matches!(third, super::OwnershipClaim::Own(_)));
+        // The daemon still cannot start while the desktops hold the claim.
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, true),
+            super::OwnershipClaim::Refused(_)
+        ));
+        drop(first);
+        drop(second);
+        drop(third);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// A lock that cannot be operated fails closed: both configurations
+    /// refuse to start instead of touching shared state unclaimed.
+    #[test]
+    fn an_unoperable_lock_refuses_both_configurations() {
+        let base = ownership_base("unoperable");
+        std::fs::create_dir_all(&base).unwrap();
+        // A directory where the lock file is expected makes opening it fail.
+        std::fs::create_dir_all(super::ownership_lock_path(&base, OWNER_IDENTIFIER)).unwrap();
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, true),
+            super::OwnershipClaim::Refused(_)
+        ));
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, false),
+            super::OwnershipClaim::Refused(_)
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// The lock is released with the owner's file handle, so the other
+    /// configuration can claim it on the next start.
+    #[test]
+    fn a_released_lock_admits_the_other_configuration() {
+        let base = ownership_base("released");
+        let first = super::claim_ownership_in(&base, OWNER_IDENTIFIER, true);
+        drop(first);
+        assert!(matches!(
+            super::claim_ownership_in(&base, OWNER_IDENTIFIER, false),
+            super::OwnershipClaim::Own(_)
+        ));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[tokio::test]
     async fn a_url_download_holds_the_import_slot_until_it_settles() {
         let imports = super::Imports::default();
