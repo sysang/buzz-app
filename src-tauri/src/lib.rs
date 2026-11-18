@@ -78,6 +78,7 @@ mod microphone;
 mod mouse_nav;
 #[cfg(target_os = "macos")]
 mod reshow;
+mod web;
 
 mod notifications;
 mod os_idle;
@@ -1376,6 +1377,14 @@ fn run_with(context: tauri::Context<tauri::Wry>) {
             });
             app.manage(credentials);
             app.manage(agents);
+            // The daemon serves the shared frontend over loopback (WDA-S-02.1);
+            // the desktop configuration never starts this listener.
+            if headless {
+                match web::start(app) {
+                    Ok(url) => eprintln!("buzz: web interface at {url}"),
+                    Err(error) => eprintln!("{error}"),
+                }
+            }
             Ok(())
         });
     #[cfg(not(target_os = "macos"))]

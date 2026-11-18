@@ -84,3 +84,110 @@ where
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! WDA-S-02.4 (WDA-WI-06) gate for the listener slice: the connection
+    //! bound is enforced at the accept/admission boundary, not just declared
+    //! in `CONNECTIONS`. Under load the listener serves at most `CONNECTIONS`
+    //! connections at once; connections beyond the bound wait instead of
+    //! spawning handlers, and cancellation ends the listener cleanly.
+
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use tokio::io::AsyncWriteExt as _;
+    use tokio::net::TcpStream;
+
+    /// Polls `condition` until it holds or `budget` elapses; bounded so a
+    /// regression fails the test instead of hanging the runner.
+    async fn wait_for(mut condition: impl FnMut() -> bool, budget: Duration) {
+        let start = Instant::now();
+        loop {
+            if condition() {
+                return;
+            }
+            assert!(
+                start.elapsed() < budget,
+                "timed out after {budget:?} waiting for the condition"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn connection_admission_stays_bounded_under_load() {
+        const EXCESS: usize = 8;
+        let (listener, authority) = bind().expect("bind loopback");
+        let port: u16 = authority
+            .strip_prefix("127.0.0.1:")
+            .and_then(|port| port.parse().ok())
+            .expect("loopback authority");
+
+        let entered = Arc::new(AtomicUsize::new(0));
+        let gate = CancellationToken::new();
+        let stop = CancellationToken::new();
+
+        let answer_entered = entered.clone();
+        let answer_gate = gate.clone();
+        let answer = move |_request: Request<Incoming>| {
+            let entered = answer_entered.clone();
+            let gate = answer_gate.clone();
+            async move {
+                entered.fetch_add(1, Ordering::SeqCst);
+                // Hold every admitted handler open until the test releases
+                // the gate, so no admission can drain while the bound is
+                // observed. The gate is test-side; production code is unchanged.
+                gate.cancelled().await;
+                Ok::<_, Infallible>(Response::new(Full::new(Bytes::from_static(b"ok"))))
+            }
+        };
+        let serve_task = tauri::async_runtime::spawn(serve(listener, stop.clone(), answer));
+
+        // More pending connections than the bound, each with a complete head.
+        let mut streams = Vec::with_capacity(CONNECTIONS + EXCESS);
+        for _ in 0..CONNECTIONS + EXCESS {
+            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port))
+                .await
+                .expect("connect loopback");
+            stream
+                .write_all(b"GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+                .await
+                .expect("write head");
+            streams.push(stream);
+        }
+
+        // Exactly the bound is admitted; excess connections wait in the
+        // listen backlog and no further handler may start. A regression that
+        // accepts without a permit never satisfies `entered == CONNECTIONS`
+        // once `EXCESS` connections are pending, so `wait_for` fails.
+        wait_for(
+            || entered.load(Ordering::SeqCst) == CONNECTIONS,
+            Duration::from_secs(5),
+        )
+        .await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert_eq!(
+            entered.load(Ordering::SeqCst),
+            CONNECTIONS,
+            "listener admitted more than {CONNECTIONS} concurrent connections"
+        );
+
+        // Releasing the handlers drains admission permit-by-permit; pending
+        // connections are eventually served rather than refused or leaked.
+        gate.cancel();
+        wait_for(
+            || entered.load(Ordering::SeqCst) == CONNECTIONS + EXCESS,
+            Duration::from_secs(5),
+        )
+        .await;
+
+        drop(streams);
+        stop.cancel();
+        tokio::time::timeout(Duration::from_secs(5), serve_task)
+            .await
+            .expect("serve stops on cancellation")
+            .expect("serve task finishes");
+    }
+}
