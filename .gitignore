@@ -45,3 +45,5 @@ src-tauri/resources/bin/*
 
 .codegraph/
 .pi/
+
+ui-verification-evidence/
