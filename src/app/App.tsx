@@ -21,6 +21,7 @@ import {
 import { ModalWindowDragProvider } from "../shared/design-system/ui/ModalWindowDrag";
 import { modalWindowDragHandlers } from "./shell/title-bar";
 import { isTauri } from "@tauri-apps/api/core";
+import { hasLocalNativeWindow } from "../daemon/environment";
 import { PairingPrompt } from "../features/credential-pairing/PairingPrompt";
 import { Dialog } from "../shared/design-system/ui/Dialog";
 import { UpdateNotice } from "../features/updates/UpdateNotice";
@@ -97,7 +98,7 @@ export function App({ services }: { services: AppServices }) {
   return (
     <AgentAvatarArtworkProvider>
       <ModalWindowDragProvider
-        value={isTauri() ? modalWindowDragHandlers : undefined}
+        value={isTauri() && hasLocalNativeWindow(isTauri()) ? modalWindowDragHandlers : undefined}
       >
         <LaunchWindowControls />
         {services.identity ? (

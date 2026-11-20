@@ -43,8 +43,9 @@ import { PanelFrame } from "../../features/panels/PanelFrame";
 import { useRelayConnection } from "../../features/relay/react";
 import { macTitleBarDragHandlers } from "./title-bar";
 import { hasIntegratedWindowControls, WindowControls } from "./WindowControls";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 
-const macDesktop = isTauri() && /Mac/i.test(navigator.platform);
+const macDesktop = isTauri() && hasLocalNativeWindow(isTauri()) && /Mac/i.test(navigator.platform);
 const titleBarDragProps = macDesktop ? macTitleBarDragHandlers : {};
 
 export function AppShell(props: ComponentProps<typeof AppShellContent>) {

@@ -1,4 +1,8 @@
 // FOUNDATION: React startup. Keep initialization explicit and minimal.
+// These first two imports are ordered: daemon injection must run before any
+// frontend dependency can capture `isTauri()` at module evaluation time.
+import "./daemon/bootstrap";
+import "./daemon/startup-capture";
 // Establish host CSS layer order before product modules import component layers.
 import "./shared/styles/globals.css";
 import { StrictMode } from "react";

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 import {
   ArrowsOutIcon,
   MinusIcon,
@@ -16,7 +17,7 @@ declare global {
 }
 
 export function hasIntegratedWindowControls() {
-  return isTauri() && /^(Linux|Win)/i.test(navigator.platform);
+  return isTauri() && hasLocalNativeWindow(isTauri()) && /^(Linux|Win)/i.test(navigator.platform);
 }
 
 /** App-owned chrome shared by the shell and pre-identity screen. */

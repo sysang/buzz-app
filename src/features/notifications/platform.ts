@@ -1,4 +1,5 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+import { isDaemonMode } from "../../daemon/environment";
 
 export type NotificationPermissionState =
   | NotificationPermission
@@ -30,7 +31,7 @@ type DesktopResponse = Readonly<{
 
 /** One native presentation owner, with its callback registered before sending. */
 export function createNotifications(): NotificationPlatform {
-  if (!isTauri()) return createBrowserNotifications();
+  if (!isTauri() || isDaemonMode()) return createBrowserNotifications();
   let disposed = false;
   const active = new Map<string, Channel<DesktopResponse>>();
   const release = (id: string, channel: Channel<DesktopResponse>) => {
@@ -94,7 +95,7 @@ export function createBrowserNotifications(
   host: Window | undefined = typeof window === "undefined" ? undefined : window,
 ): NotificationPlatform {
   const api =
-    host && !isTauri() && "Notification" in host
+    host && (!isTauri() || isDaemonMode()) && "Notification" in host
       ? (host as Window & { Notification: typeof Notification }).Notification
       : undefined;
   const active = new Map<string, Notification>();
@@ -109,7 +110,7 @@ export function createBrowserNotifications(
     notification.close();
   }
   return {
-    label: isTauri()
+    label: isTauri() && !isDaemonMode()
       ? "Native notifications unavailable in this build"
       : "Browser notifications",
     permission: async () => api?.permission ?? "unsupported",

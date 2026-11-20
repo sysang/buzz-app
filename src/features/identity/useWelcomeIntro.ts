@@ -8,6 +8,7 @@ import {
 } from "@tauri-apps/api/window";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { launchVisible, subscribeLaunch } from "../../app/launch";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 
 const KEY = "buzz-mac-welcome-intro.v1";
 export function useWelcomeIntro(welcome: boolean) {
@@ -17,6 +18,7 @@ export function useWelcomeIntro(welcome: boolean) {
       return welcome &&
         document.documentElement.dataset.welcomeIntro === "pending" &&
         isTauri() &&
+        hasLocalNativeWindow(isTauri()) &&
         /Mac/i.test(navigator.platform) &&
         !localStorage.getItem(KEY) &&
         !matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -28,6 +30,10 @@ export function useWelcomeIntro(welcome: boolean) {
   });
   const active = phase !== "done";
   useEffect(() => {
+    if (!hasLocalNativeWindow(isTauri())) {
+      delete document.documentElement.dataset.welcomeIntro;
+      return;
+    }
     if (!welcome) return;
     if (!active) {
       if (document.documentElement.dataset.welcomeIntro === "pending") {

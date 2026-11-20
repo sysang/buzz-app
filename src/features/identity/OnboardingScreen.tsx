@@ -5,6 +5,7 @@ import {
   WindowControls,
 } from "../../app/shell/WindowControls";
 import { macTitleBarDragHandlers } from "../../app/shell/title-bar";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 import { Panel } from "../../shared/design-system/ui/Panel";
 import { OnboardingBees } from "./OnboardingBees";
 import { useWelcomeIntro } from "./useWelcomeIntro";
@@ -23,7 +24,7 @@ export function OnboardingScreen({
   children: ReactNode;
 }) {
   const introPhase = useWelcomeIntro(welcome);
-  const macDesktop = isTauri() && /Mac/i.test(navigator.platform);
+  const macDesktop = isTauri() && hasLocalNativeWindow(isTauri()) && /Mac/i.test(navigator.platform);
   const integratedWindowControls = hasIntegratedWindowControls();
   const content = (
     <>

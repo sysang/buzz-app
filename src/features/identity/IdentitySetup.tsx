@@ -12,6 +12,7 @@ import {
   WindowControls,
 } from "../../app/shell/WindowControls";
 import { macTitleBarDragHandlers } from "../../app/shell/title-bar";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 import { Button } from "../../shared/design-system/ui/Button";
 import { Field } from "../../shared/design-system/ui/Field";
 import { Input } from "../../shared/design-system/ui/Input";
@@ -58,7 +59,7 @@ export function IdentitySetup({
     },
     [identity],
   );
-  const macDesktop = isTauri() && /Mac/i.test(navigator.platform);
+  const macDesktop = isTauri() && hasLocalNativeWindow(isTauri()) && /Mac/i.test(navigator.platform);
   const integratedWindowControls = hasIntegratedWindowControls();
   if (state.status === "ready") return children;
   if (missing && !importing && !state.recovery) {

@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { isTauri } from "@tauri-apps/api/core";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 import { Button } from "../../shared/design-system/ui/Button";
 import { EmptyState } from "../../shared/design-system/ui/EmptyState";
 import { ArrowsClockwiseIcon } from "../../shared/design-system/icons";
@@ -26,7 +27,7 @@ export function UpdateSettings({
   // Browser builds have no native version; leave it unset there.
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isTauri() || !hasLocalNativeWindow(isTauri())) return;
     let cancelled = false;
     getVersion()
       .then((found) => {

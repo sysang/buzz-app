@@ -90,6 +90,17 @@ fn fixture() -> Key {
     Key::new(Zeroizing::new([1; 32]))
 }
 
+/// In-memory credential-store fixture for bridge round trips. It exercises the
+/// production identity service without consulting the workstation keyring.
+pub(crate) fn bridge_fixture() -> IdentityHost {
+    let store = Arc::new(Memory::default());
+    IdentityHost(Arc::new(Mutex::new(identity(&store))))
+}
+
+pub(crate) fn test_nsec() -> String {
+    fixture().nsec().expect("test fixture key encodes")
+}
+
 #[test]
 fn imports_exact_key_then_restores_and_exports_without_repeated_reads() {
     let store = Arc::new(Memory::default());

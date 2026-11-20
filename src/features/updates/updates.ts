@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { check } from "@tauri-apps/plugin-updater";
+import { hasLocalNativeWindow } from "../../daemon/environment";
 
 export type UpdateStatus =
   | { state: "idle" }
@@ -40,14 +41,16 @@ const BACKGROUND_BLOCKED_STATES = new Set<UpdateStatus["state"]>([
 ]);
 
 const tauriPlatform: UpdatePlatform = {
-  desktop: isTauri(),
+  desktop: isTauri() && hasLocalNativeWindow(isTauri()),
   check: () =>
-    check({
-      headers: { "Cache-Control": "no-cache" },
-      timeout: UPDATE_CHECK_TIMEOUT_MS,
-    }),
+    hasLocalNativeWindow(isTauri())
+      ? check({
+          headers: { "Cache-Control": "no-cache" },
+          timeout: UPDATE_CHECK_TIMEOUT_MS,
+        })
+      : Promise.resolve(null),
   // Restarts only after agent shutdown is confirmed, like Quit.
-  relaunch: () => invoke("update_restart"),
+  relaunch: () => hasLocalNativeWindow(isTauri()) ? invoke("update_restart") : Promise.resolve(),
 };
 
 const toErrorMessage = (err: unknown) =>

@@ -3,6 +3,16 @@ use std::io::{Read, Write};
 use std::net::TcpListener;
 
 #[test]
+fn relay_http_client_builds_with_native_certificates_loaded() {
+    let native_certs = rustls_native_certs::load_native_certs();
+    assert!(
+        !native_certs.certs.is_empty(),
+        "test requires native certificates to be installed"
+    );
+    assert!(build_client().is_ok());
+}
+
+#[test]
 fn routes_cannot_retarget_credentials_or_expand_http_access() {
     for community in [
         "http://relay.test",

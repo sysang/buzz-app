@@ -866,21 +866,31 @@ pub(crate) fn user_agent() -> &'static str {
     USER_AGENT.get().map_or("Buzz", String::as_str)
 }
 
+fn build_client() -> std::result::Result<reqwest::Client, reqwest::Error> {
+    // Keep reqwest's bundled public roots and add native roots (e.g. the
+    // workstation's mkcert CA), so desktop relays using public CAs are unchanged.
+    let builder = reqwest::Client::builder()
+        .user_agent(user_agent())
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(30))
+        .tls_certs_merge(
+            rustls_native_certs::load_native_certs()
+                .certs
+                .into_iter()
+                .filter_map(|cert| reqwest::Certificate::from_der(cert.as_ref()).ok()),
+        );
+    // Tests' loopback communities use one self-signed root; merge it rather
+    // than replacing either the bundled or native roots.
+    #[cfg(test)]
+    let builder = builder.tls_certs_merge([crate::federated_identity::testing::trusted_root()]);
+    builder.build()
+}
+
 fn client() -> Result<&'static reqwest::Client> {
     static CLIENT: OnceLock<std::result::Result<reqwest::Client, reqwest::Error>> = OnceLock::new();
     CLIENT
-        .get_or_init(|| {
-            let builder = reqwest::Client::builder()
-                .user_agent(user_agent())
-                .redirect(reqwest::redirect::Policy::none())
-                .connect_timeout(Duration::from_secs(10))
-                .timeout(Duration::from_secs(30));
-            // Tests' loopback communities use one self-signed root.
-            #[cfg(test)]
-            let builder =
-                builder.tls_certs_only([crate::federated_identity::testing::trusted_root()]);
-            builder.build()
-        })
+        .get_or_init(build_client)
         .as_ref()
         .map_err(|_| "Relay network client is unavailable".into())
 }

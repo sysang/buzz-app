@@ -11,8 +11,18 @@ vi.mock("@tauri-apps/api/core", () => ({ isTauri: vi.fn() }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: vi.fn() }));
 afterEach(() => {
   cleanup();
+  document.head.innerHTML = "";
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("suppresses native window controls in daemon mode despite host services being available", () => {
+  vi.mocked(isTauri).mockReturnValue(true);
+  document.head.innerHTML = '<meta name="buzz-web-token" content="daemon-token">';
+  vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64");
+  render(<WindowControls />);
+  expect(screen.queryByRole("group")).not.toBeInTheDocument();
+  expect(getCurrentWindow).not.toHaveBeenCalled();
 });
 
 it.each([

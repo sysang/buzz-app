@@ -255,6 +255,68 @@ impl Community {
             expected,
         }
     }
+    /// Answers discovery at `/info`; other bounded HTTP requests are passed to
+    /// `respond` with their head and body, so command-level upload/publication
+    /// round trips can return receipts bound to the actual signed request.
+    pub(crate) fn serve_dynamic<F>(&self, expected: usize, respond: F) -> Served
+    where
+        F: Fn(&str, &[u8]) -> String + Send + Sync + 'static,
+    {
+        let listener = self.listener.clone();
+        let acceptor = self.acceptor.clone();
+        let discovery = self.discovery();
+        let respond = Arc::new(respond);
+        let heads = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = heads.clone();
+        let task = tokio::spawn(async move {
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+            let mut served = 0;
+            while served < expected {
+                let (tcp, _) = listener.accept().await.unwrap();
+                let mut stream = acceptor.accept(tcp).await.unwrap();
+                let mut head = Vec::new();
+                while !head.ends_with(b"\r\n\r\n") {
+                    assert!(
+                        head.len() < 16 * 1024,
+                        "HTTP fixture request head exceeds bound"
+                    );
+                    head.push(stream.read_u8().await.unwrap());
+                }
+                let head = String::from_utf8(head).unwrap();
+                if head.starts_with("GET /info ") {
+                    stream.write_all(discovery.as_bytes()).await.unwrap();
+                    let _ = stream.shutdown().await;
+                    continue;
+                }
+                let content_length = head
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())
+                            .flatten()
+                    })
+                    .unwrap_or(0);
+                assert!(
+                    content_length <= 1024 * 1024,
+                    "HTTP fixture request body exceeds bound"
+                );
+                let mut body = vec![0; content_length];
+                stream.read_exact(&mut body).await.unwrap();
+                recorded.lock().unwrap().push(head.clone());
+                let response = respond(&head, &body);
+                stream.write_all(response.as_bytes()).await.unwrap();
+                let _ = stream.shutdown().await;
+                served += 1;
+            }
+        });
+        Served {
+            task,
+            heads,
+            expected,
+        }
+    }
+
     /// Answers discovery at `/info`, then accepts the next request as a
     /// WebSocket (`101`) and runs `script` on it. Yields that request's head.
     pub(crate) fn serve_socket<F, Fut>(&self, script: F) -> tokio::task::JoinHandle<String>

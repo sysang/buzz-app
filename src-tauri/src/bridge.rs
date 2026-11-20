@@ -1332,12 +1332,53 @@ mod tests {
 
         let adapter = adapter_command_names(include_str!("bridge_adapter.rs"));
         let expected_adapter = [
+            "app_agent_claim",
+            "app_agent_create",
+            "app_agent_git_auth",
+            "app_agent_list",
+            "app_agent_media",
+            "app_agent_publish",
+            "app_agent_publish_profile",
+            "app_agent_query",
+            "app_agent_remember",
+            "app_agent_release",
+            "app_agent_search_profiles",
+            "app_agent_set_picture",
+            "app_agent_upload",
+            "app_agent_state_load",
+            "app_agent_state_set",
+            "identity_create",
+            "identity_import",
             "identity_legacy_available",
+            "plugin_catalog",
+            "plugin_change",
+            "plugin_managed_refresh",
+            "identity_restore",
+            "keep_awake_set",
             "pairing_status",
+            "plugin_host_mcp_close",
+            "plugin_host_mcp_reply",
             "plugin_host_mcp_serve",
-            "plugin_host_resolve_directory",
+            "plugin_host_process_bind_agent",
+            "plugin_host_process_kill",
+            "plugin_host_process_spawn",
+            "plugin_host_process_tool_credential",
+            "plugin_host_process_write",
             "plugin_host_read_file",
+            "plugin_host_resolve_directory",
+            "relay_agent_library",
+            "relay_agent_memories_read",
+            "relay_channel_sign",
+            "legacy_communities",
+            "relay_direct_message",
+            "relay_http",
+            "relay_sign",
+            "relay_socket_close",
+            "relay_socket_connect",
+            "relay_socket_send",
+            "relay_socket_start",
             "relay_upload_chunk",
+            "relay_verify_signatures",
         ];
         assert_eq!(
             adapter.len(),
@@ -2682,6 +2723,1581 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn plugin_shell_catalog_and_change_round_trip_with_real_manager() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+
+        async fn plugin_bridge_call(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            command: &str,
+            body: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .expect("plugin invoke send deadline")
+            .expect("plugin invoke send");
+            let response = tokio::time::timeout(Duration::from_secs(3), ws.next())
+                .await
+                .expect("plugin response deadline")
+                .expect("plugin response frame")
+                .expect("plugin response websocket");
+            serde_json::from_str(response.to_text().expect("JSON response")).unwrap()
+        }
+
+        let temp = tempfile::tempdir().unwrap();
+        let root = dunce::canonicalize(temp.path()).unwrap();
+        let manager =
+            buzzodz_plugins::Manager::open(Some(root.clone()), "bridge-plugin-shell", false)
+                .unwrap();
+        let direct = manager.catalog().unwrap();
+        let direct_ids = direct
+            .plugins
+            .iter()
+            .map(|plugin| plugin.manifest.id.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        for id in ["buzz.pi", "buzz.goose", "block.builderlab"] {
+            assert!(direct_ids.contains(id), "manager catalog missing {id}");
+        }
+        let app = mock_builder()
+            .manage(crate::PluginManager(Ok(manager.clone())))
+            .manage(crate::federated_identity::access::Registrations::default())
+            .build(mock_context(noop_assets()))
+            .expect("plugin shell fixture app");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 82)))
+            .await
+            .expect("plugin auth deadline")
+            .expect("plugin auth");
+        let catalog = plugin_bridge_call(
+            &mut ws,
+            1,
+            "plugin_catalog",
+            serde_json::json!({"kind":"json","value":{}}),
+        )
+        .await;
+        assert_eq!(catalog["type"], "invoke_ok", "{catalog}");
+        let catalog = &catalog["payload"]["catalog"]["plugins"];
+        for id in ["buzz.pi", "buzz.goose", "block.builderlab"] {
+            assert!(
+                catalog
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|plugin| plugin["manifest"]["id"] == id),
+                "bridge catalog missing {id}: {catalog}"
+            );
+        }
+        let before = catalog
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["manifest"]["id"] == "buzz.channels")
+            .unwrap()["enabled"]
+            .as_bool()
+            .unwrap();
+        let changed = plugin_bridge_call(
+            &mut ws,
+            2,
+            "plugin_change",
+            serde_json::json!({"kind":"json","value":{"action":if before {"disable"} else {"enable"},"id":"buzz.channels"}}),
+        )
+        .await;
+        assert_eq!(changed["type"], "invoke_err");
+        assert!(changed["error"].as_str().unwrap().contains("required"));
+        let pi_enabled = catalog
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|plugin| plugin["manifest"]["id"] == "buzz.pi")
+            .unwrap()["enabled"]
+            .as_bool()
+            .unwrap();
+        let changed = plugin_bridge_call(
+            &mut ws,
+            3,
+            "plugin_change",
+            serde_json::json!({"kind":"json","value":{"action":if pi_enabled {"disable"} else {"enable"},"id":"buzz.pi"}}),
+        )
+        .await;
+        assert_eq!(changed["type"], "invoke_ok", "{changed}");
+        assert_eq!(
+            changed["payload"]["catalog"]["plugins"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|plugin| plugin["manifest"]["id"] == "buzz.pi")
+                .unwrap()["enabled"],
+            !pi_enabled
+        );
+        std::fs::write(
+            root.join("profiles/bridge-plugin-shell/registry.json"),
+            b"{corrupt",
+        )
+        .unwrap();
+        let recovery = plugin_bridge_call(
+            &mut ws,
+            4,
+            "plugin_catalog",
+            serde_json::json!({"kind":"json","value":{}}),
+        )
+        .await;
+        assert_eq!(recovery["type"], "invoke_ok", "{recovery}");
+        assert_eq!(recovery["payload"]["status"], "recovery");
+        assert_eq!(recovery["payload"]["canReset"], true);
+        if buzzodz_plugins::managed::PACKAGED_URL.is_empty() {
+            let refreshed = plugin_bridge_call(
+                &mut ws,
+                5,
+                "plugin_managed_refresh",
+                serde_json::json!({"kind":"json","value":{}}),
+            )
+            .await;
+            assert_eq!(refreshed["type"], "invoke_ok", "{refreshed}");
+            assert_eq!(refreshed["payload"]["status"], "recovery");
+            assert_eq!(refreshed["payload"]["canReset"], true);
+        }
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("plugin close deadline")
+            .expect("plugin close");
+    }
+
+    #[tokio::test]
+    async fn identity_create_and_import_round_trip_with_identity_service_fixtures() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+
+        async fn bridge_call(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            command: &str,
+            body: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .expect("identity invoke send deadline")
+            .expect("identity invoke send");
+            let response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+                .await
+                .expect("identity response deadline")
+                .expect("identity response frame")
+                .expect("identity response websocket");
+            serde_json::from_str(response.to_text().expect("JSON response"))
+                .unwrap_or_else(|error| panic!("valid response JSON {response:?}: {error}"))
+        }
+
+        let created_app_for_bridge = mock_builder()
+            .manage(crate::identity::tests::bridge_fixture())
+            .manage(crate::nsec_backup::NsecBackupHost::default())
+            .build(mock_context(noop_assets()))
+            .expect("bridge identity create fixture app");
+        let create_adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            created_app_for_bridge.handle().clone(),
+        ));
+        let (create_port, _create_stop) = bridge_port_with_adapter(Some(create_adapter)).await;
+        let mut create_ws = ws_client(create_port, None).await;
+        create_ws
+            .send(auth_text("test-token", 90))
+            .await
+            .expect("create auth");
+        let created = bridge_call(
+            &mut create_ws,
+            1,
+            "identity_create",
+            serde_json::json!({"kind":"json","value":{}}),
+        )
+        .await;
+        assert_eq!(created["type"], "invoke_ok");
+        let created_viewer: String = serde_json::from_value(created["payload"].clone()).unwrap();
+        assert_eq!(created_viewer.len(), 64);
+        assert!(created_viewer.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_eq!(
+            crate::identity::identity_restore(
+                created_app_for_bridge.state::<crate::identity::IdentityHost>()
+            )
+            .await
+            .unwrap(),
+            Some(created_viewer),
+        );
+        create_ws.close(None).await.expect("close create bridge");
+
+        let nsec = crate::identity::tests::test_nsec();
+        let direct_app = mock_builder()
+            .manage(crate::identity::tests::bridge_fixture())
+            .manage(crate::nsec_backup::NsecBackupHost::default())
+            .build(mock_context(noop_assets()))
+            .expect("desktop identity import fixture app");
+        let expected_import = crate::identity::identity_import(
+            direct_app.state::<crate::identity::IdentityHost>(),
+            direct_app.state::<crate::nsec_backup::NsecBackupHost>(),
+            nsec.clone(),
+        )
+        .await
+        .expect("desktop import fixture succeeds");
+
+        // Use a fresh fixture for the bridge call; both invoke the production identity service.
+        let import_host = crate::identity::tests::bridge_fixture();
+        let app = mock_builder()
+            .manage(import_host.clone())
+            .manage(crate::nsec_backup::NsecBackupHost::default())
+            .build(mock_context(noop_assets()))
+            .expect("identity import fixture app");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let mut ws = ws_client(port, None).await;
+        ws.send(auth_text("test-token", 91)).await.expect("auth");
+        let imported_response = bridge_call(
+            &mut ws,
+            1,
+            "identity_import",
+            serde_json::json!({"kind":"json","value":{"nsec": nsec}}),
+        )
+        .await;
+        assert_eq!(imported_response["type"], "invoke_ok");
+        assert_eq!(imported_response["payload"], expected_import);
+
+        let expected_import_occupied = crate::identity::identity_import(
+            app.state::<crate::identity::IdentityHost>(),
+            app.state::<crate::nsec_backup::NsecBackupHost>(),
+            nsec.clone(),
+        )
+        .await
+        .expect_err("desktop import refuses an occupied identity slot");
+        let import_occupied = bridge_call(
+            &mut ws,
+            2,
+            "identity_import",
+            serde_json::json!({"kind":"json","value":{"nsec": nsec}}),
+        )
+        .await;
+        assert_eq!(import_occupied["type"], "invoke_err");
+        assert_eq!(
+            import_occupied["error"],
+            expected_import_occupied.to_string()
+        );
+
+        // The imported key now occupies the slot: creation must preserve the same
+        // error returned by the desktop command instead of replacing it.
+        let expected_occupied = crate::identity::identity_create(
+            app.state::<crate::identity::IdentityHost>(),
+            app.state::<crate::nsec_backup::NsecBackupHost>(),
+        )
+        .await
+        .expect_err("create refuses an occupied identity slot");
+        let occupied = bridge_call(
+            &mut ws,
+            2,
+            "identity_create",
+            serde_json::json!({"kind":"json","value":{}}),
+        )
+        .await;
+        assert_eq!(occupied["type"], "invoke_err");
+        assert_eq!(occupied["error"], expected_occupied.to_string());
+
+        ws.close(None).await.expect("close identity bridge");
+    }
+
+    #[tokio::test]
+    async fn identity_agent_state_and_direct_message_commands_round_trip_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+        let temp = tempfile::tempdir().expect("agent state temp directory");
+        let identity = crate::identity::IdentityHost::fixture();
+        let app = mock_builder()
+            .manage(crate::pairing::Pairing::default())
+            .manage(identity.clone())
+            .manage(crate::federated_identity::FederatedIdentity::unconfigured())
+            .manage(crate::agent_state::AgentState::new(Ok(temp
+                .path()
+                .to_owned())))
+            .build(mock_context(noop_assets()))
+            .expect("headless turn fixture");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let desktop_identity = crate::identity::identity_restore(app.state())
+            .await
+            .expect("same identity service as desktop");
+        let desktop_set = crate::agent_state::app_agent_state_set(
+            app.state(),
+            "turn.fixture".into(),
+            Some("ready".into()),
+            None,
+        )
+        .await
+        .expect("same agent-state setter as desktop");
+        let desktop_load = crate::agent_state::app_agent_state_load(app.state(), None)
+            .await
+            .expect("same agent-state loader as desktop");
+        let desktop_dm_error = crate::relay::relay_direct_message(
+            app.state(),
+            app.state(),
+            "https://relay.example".into(),
+            Vec::new(),
+        )
+        .await
+        .expect_err("empty direct-message membership is refused before relay I/O");
+
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 17)))
+            .await
+            .expect("turn auth send deadline")
+            .expect("auth");
+        for (id, command, body, expected_type, expected_payload) in [
+            (
+                1,
+                "identity_restore",
+                serde_json::json!({"kind":"json","value":{}}),
+                "invoke_ok",
+                serde_json::to_value(desktop_identity).unwrap(),
+            ),
+            (
+                2,
+                "app_agent_state_set",
+                serde_json::json!({"kind":"json","value":{"key":"turn.fixture","value":"ready"}}),
+                "invoke_ok",
+                serde_json::to_value(desktop_set).unwrap(),
+            ),
+            (
+                3,
+                "app_agent_state_load",
+                serde_json::json!({"kind":"json","value":{}}),
+                "invoke_ok",
+                serde_json::to_value(desktop_load).unwrap(),
+            ),
+            (
+                4,
+                "relay_direct_message",
+                serde_json::json!({"kind":"json","value":{"community":"https://relay.example","pubkeys":[]}}),
+                "invoke_err",
+                serde_json::to_value(desktop_dm_error).unwrap(),
+            ),
+        ] {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} invoke send deadline"))
+            .unwrap_or_else(|_| panic!("{command} invoke send"));
+            let response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("{command} response deadline"))
+                .expect("response frame")
+                .expect("response decode");
+            let Message::Text(response) = response else {
+                panic!("expected {command} JSON response, got {response:?}")
+            };
+            let response: Value = serde_json::from_str(response.as_str()).expect("JSON response");
+            assert_eq!(response["type"], expected_type, "{command}");
+            assert_eq!(response["id"], id, "{command}");
+            let actual_payload = if response["type"] == "invoke_ok" {
+                &response["payload"]
+            } else {
+                &response["error"]
+            };
+            assert_eq!(actual_payload, &expected_payload, "{command}");
+        }
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("turn bridge close deadline")
+            .expect("close turn bridge socket");
+    }
+
+    struct AgentTestCredentials(std::sync::Mutex<std::collections::HashMap<String, String>>);
+
+    impl buzz_agent_controller::Credentials for AgentTestCredentials {
+        fn read_legacy(
+            &self,
+            _: buzz_agent_controller::LegacySource,
+            _: &str,
+        ) -> Result<buzz_agent_controller::Secret, String> {
+            Err("legacy credentials unavailable in fixture".into())
+        }
+
+        fn read(
+            &self,
+            _: &str,
+            pubkey: &str,
+        ) -> Result<Option<buzz_agent_controller::Secret>, String> {
+            self.0
+                .lock()
+                .unwrap()
+                .get(pubkey)
+                .map(|secret| buzz_agent_controller::Secret::parse(secret, pubkey))
+                .transpose()
+        }
+
+        fn add(&self, _: &str, secret: &buzz_agent_controller::Secret) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .insert(secret.pubkey().to_owned(), secret.hex().to_string());
+            Ok(())
+        }
+
+        fn delete(&self, _: &str, pubkey: &str) -> Result<(), String> {
+            self.0.lock().unwrap().remove(pubkey);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn agent_create_and_list_round_trip_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+
+        let temp = tempfile::tempdir().expect("agent storage temp directory");
+        let identity = crate::identity::IdentityHost::fixture();
+        let owner = identity
+            .saved_viewer()
+            .await
+            .expect("test identity loads")
+            .expect("fixture contains a real identity");
+        let credentials = Arc::new(AgentTestCredentials(std::sync::Mutex::default()));
+        let agents = crate::app_agents::AppAgentHost::new(
+            Ok(temp.path().join("agents.json")),
+            Err("unused legacy agent store".into()),
+            true,
+            crate::federated_identity::agent::AgentTokens::unconfigured(),
+        )
+        .with_credentials_for_test(credentials);
+        let app = mock_builder()
+            .manage(identity)
+            .manage(agents)
+            .manage(crate::federated_identity::FederatedIdentity::unconfigured())
+            .build(mock_context(noop_assets()))
+            .expect("headless agent fixture");
+        let adapter = Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let destination = "https://relay.example.test".to_owned();
+        let agent_type = "pi".to_owned();
+        let name = "Bridge-created agent".to_owned();
+
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 27)))
+            .await
+            .expect("agent auth send deadline")
+            .expect("auth");
+        for (id, command, body) in [
+            (
+                1,
+                "app_agent_create",
+                serde_json::json!({
+                    "kind":"json",
+                    "value":{
+                        "destination":destination,
+                        "owner":owner,
+                        "agentType":agent_type,
+                        "name":name
+                    }
+                }),
+            ),
+            (
+                2,
+                "app_agent_list",
+                serde_json::json!({"kind":"json","value":{}}),
+            ),
+        ] {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} invoke send deadline"))
+            .unwrap_or_else(|_| panic!("{command} invoke send"));
+            let response = tokio::time::timeout(Duration::from_secs(5), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("{command} response deadline"))
+                .expect("response frame")
+                .expect("response decode");
+            let Message::Text(response) = response else {
+                panic!("expected {command} JSON result, got {response:?}")
+            };
+            let response: Value = serde_json::from_str(response.as_str()).expect("JSON response");
+            assert_eq!(response["type"], "invoke_ok", "{command}: {response}");
+            assert_eq!(response["id"], id, "{command}");
+            if command == "app_agent_create" {
+                assert_eq!(response["payload"]["owner"], owner);
+                assert_eq!(response["payload"]["type"], agent_type);
+                assert_eq!(response["payload"]["name"], name);
+                assert!(response["payload"]["pubkey"].as_str().is_some());
+            } else {
+                let listed = crate::app_agents::app_agent_list(app.state())
+                    .await
+                    .expect("desktop-equivalent agent list");
+                assert_eq!(response["payload"], serde_json::to_value(listed).unwrap());
+                assert_eq!(response["payload"].as_array().unwrap().len(), 1);
+                assert_eq!(response["payload"][0]["name"], name);
+            }
+        }
+        let expected_library = crate::relay::relay_agent_library(
+            app.state(),
+            app.state(),
+            "https://relay.example.test".into(),
+        )
+        .await
+        .expect("desktop-equivalent agent library");
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(
+            3, "relay_agent_library", serde_json::json!({"kind":"json","value":{"community":"https://relay.example.test"}}),
+        ))).await.expect("library invoke send deadline").expect("library invoke send");
+        let response = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("library response deadline")
+            .expect("library response")
+            .expect("library decode");
+        let Message::Text(response) = response else {
+            panic!("expected library JSON result: {response:?}")
+        };
+        let response: Value = serde_json::from_str(response.as_str()).unwrap();
+        assert_eq!(response["type"], "invoke_ok");
+        assert_eq!(response["id"], 3);
+        assert_eq!(
+            response["payload"],
+            serde_json::to_value(expected_library).unwrap()
+        );
+
+        let channel_template = serde_json::json!({
+            "kind": 9002, "created_at": 1_700_000_010, "content": "",
+            "tags": [["h", uuid::Uuid::new_v4().to_string()], ["name", "Records"], ["about", ""], ["visibility", "open"]]
+        });
+        let expected_signed = crate::relay::relay_channel_sign(
+            app.state(),
+            "https://relay.example.test".into(),
+            "channel-details".into(),
+            channel_template.clone(),
+        )
+        .await
+        .expect("desktop-equivalent channel sign");
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(
+            4, "relay_channel_sign", serde_json::json!({"kind":"json","value":{
+                "community":"https://relay.example.test", "route":"channel-details", "event":channel_template
+            }}),
+        ))).await.expect("channel sign invoke send deadline").expect("channel sign invoke send");
+        let response = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("channel sign response deadline")
+            .expect("channel sign response")
+            .expect("channel sign decode");
+        let Message::Text(response) = response else {
+            panic!("expected channel sign JSON result: {response:?}")
+        };
+        let response: Value = serde_json::from_str(response.as_str()).unwrap();
+        assert_eq!(response["type"], "invoke_ok");
+        assert_eq!(response["id"], 4);
+        let expected_signed = serde_json::to_value(expected_signed).unwrap();
+        for field in ["content", "created_at", "id", "kind", "pubkey", "tags"] {
+            assert_eq!(
+                response["payload"][field], expected_signed[field],
+                "channel sign {field}"
+            );
+        }
+        assert!(response["payload"]["sig"].as_str().is_some());
+
+        let expected_legacy = crate::legacy_communities::legacy_communities()
+            .await
+            .unwrap();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            ws.send(invoke_text(
+                5,
+                "legacy_communities",
+                serde_json::json!({"kind":"json","value":{}}),
+            )),
+        )
+        .await
+        .expect("legacy invoke send deadline")
+        .expect("legacy invoke send");
+        let response = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("legacy response deadline")
+            .expect("legacy response")
+            .expect("legacy decode");
+        let Message::Text(response) = response else {
+            panic!("expected legacy JSON result: {response:?}")
+        };
+        let response: Value = serde_json::from_str(response.as_str()).unwrap();
+        assert_eq!(response["type"], "invoke_ok");
+        assert_eq!(response["id"], 5);
+        assert_eq!(
+            response["payload"],
+            serde_json::to_value(expected_legacy).unwrap()
+        );
+
+        let memory_args =
+            serde_json::json!({"community":"not a URL", "agent":"a".repeat(64), "slug":null});
+        let expected_memory_error = crate::relay::agent::relay_agent_memories_read_headless(
+            app.state::<crate::identity::IdentityHost>().inner(),
+            app.state::<crate::federated_identity::FederatedIdentity>()
+                .inner(),
+            memory_args["community"].as_str().unwrap().to_owned(),
+            memory_args["agent"].as_str().unwrap().to_owned(),
+            None,
+        )
+        .await
+        .unwrap_err();
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            ws.send(invoke_text(
+                6,
+                "relay_agent_memories_read",
+                serde_json::json!({"kind":"json","value":memory_args}),
+            )),
+        )
+        .await
+        .expect("memory invoke send deadline")
+        .expect("memory invoke send");
+        let response = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("memory response deadline")
+            .expect("memory response")
+            .expect("memory decode");
+        let Message::Text(response) = response else {
+            panic!("expected memory error response: {response:?}")
+        };
+        let response: Value = serde_json::from_str(response.as_str()).unwrap();
+        assert_eq!(response["type"], "invoke_err");
+        assert_eq!(response["id"], 6);
+        assert_eq!(response["error"], expected_memory_error);
+
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("agent bridge close deadline")
+            .expect("close agent bridge socket");
+    }
+
+    #[tokio::test]
+    async fn relay_agent_memories_read_returns_real_memory_through_live_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+
+        let community = crate::federated_identity::testing::community(false).await;
+        let owner = community.host.viewer().await.expect("fixture owner");
+        let agent_key = buzz_agent_controller::Secret::generate().expect("agent test key");
+        let agent = agent_key.pubkey().to_owned();
+        let memory = agent_key
+            .memory_event(&owner, "core", Some("bridge memory fixture"), 1_700_000_001)
+            .expect("signed memory event");
+        let wire = serde_json::json!([memory]).to_string();
+        let relay_responses = community.serve_dynamic(2, move |_, _| {
+            crate::federated_identity::testing::reply("200 OK", &wire)
+        });
+        let origin = community.origin.origin().ascii_serialization();
+        let app = mock_builder()
+            .manage(community.host.clone())
+            .manage(community.fi.clone())
+            .build(mock_context(noop_assets()))
+            .expect("headless memory-read app");
+        let adapter = Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+
+        let direct = crate::relay::agent::relay_agent_memories_read_headless(
+            app.state::<crate::identity::IdentityHost>().inner(),
+            app.state::<crate::federated_identity::FederatedIdentity>()
+                .inner(),
+            origin.clone(),
+            agent.clone(),
+            Some("core".into()),
+        )
+        .await
+        .expect("direct fixture memory read");
+        assert_eq!(direct["entries"][0]["body"], "bridge memory fixture");
+
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 47)))
+            .await
+            .expect("memory auth deadline")
+            .expect("memory auth");
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            ws.send(invoke_text(
+                1,
+                "relay_agent_memories_read",
+                serde_json::json!({"kind":"json","value":{
+                    "community":origin, "agent":agent, "slug":"core"
+                }}),
+            )),
+        )
+        .await
+        .expect("memory invoke send deadline")
+        .expect("memory invoke send");
+        let response = tokio::time::timeout(Duration::from_secs(10), ws.next())
+            .await
+            .expect("memory bridge response deadline")
+            .expect("memory bridge response")
+            .expect("memory response decode");
+        let Message::Text(response) = response else {
+            panic!("expected memory JSON response: {response:?}")
+        };
+        let response: Value =
+            serde_json::from_str(response.as_str()).expect("memory JSON response");
+        assert_eq!(response["type"], "invoke_ok");
+        assert_eq!(response["id"], 1);
+        assert_eq!(response["payload"], direct);
+        assert_eq!(
+            response["payload"]["entries"][0]["body"],
+            "bridge memory fixture"
+        );
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("memory bridge close deadline")
+            .expect("close memory bridge socket");
+        let heads = relay_responses.heads().await;
+        assert_eq!(
+            heads.len(),
+            2,
+            "direct and bridged memory reads reach relay"
+        );
+    }
+
+    #[tokio::test]
+    async fn agent_custody_and_identity_commands_round_trip_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+
+        let community = crate::federated_identity::testing::community(false).await;
+        let response = community.serve_dynamic(1, |_, body| {
+            let event: Value = serde_json::from_slice(body).expect("signed agent event");
+            crate::federated_identity::testing::reply(
+                "200 OK",
+                &serde_json::json!({"accepted":true,"event_id":event["id"]}).to_string(),
+            )
+        });
+        let relay = community.origin.origin().ascii_serialization();
+        let owner = community.host.viewer().await.expect("owner identity");
+        let temp = tempfile::tempdir().expect("agent storage temp directory");
+        let credentials = Arc::new(AgentTestCredentials(std::sync::Mutex::default()));
+        let agents = crate::app_agents::AppAgentHost::new(
+            Ok(temp.path().join("agents.json")),
+            Err("unused legacy agent store".into()),
+            true,
+            crate::federated_identity::agent::AgentTokens::unconfigured(),
+        )
+        .with_credentials_for_test(credentials);
+        let app = mock_builder()
+            .manage(community.host.clone())
+            .manage(community.fi.clone())
+            .manage(agents)
+            .build(mock_context(noop_assets()))
+            .expect("headless agent custody app");
+        let adapter = Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 38)))
+            .await
+            .expect("agent auth send deadline")
+            .expect("auth");
+
+        async fn invoke(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            command: &str,
+            value: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(
+                    id,
+                    command,
+                    serde_json::json!({"kind":"json","value":value}),
+                )),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} send deadline"))
+            .unwrap_or_else(|_| panic!("{command} send"));
+            let frame = tokio::time::timeout(Duration::from_secs(10), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("{command} response deadline"))
+                .expect("response frame")
+                .expect("response decode");
+            let Message::Text(frame) = frame else {
+                panic!("expected {command} response, got {frame:?}")
+            };
+            let response: Value = serde_json::from_str(frame.as_str()).expect("JSON response");
+            assert_eq!(response["type"], "invoke_ok", "{command}: {response}");
+            assert_eq!(response["id"], id);
+            response["payload"].clone()
+        }
+
+        let created = invoke(
+            &mut ws,
+            1,
+            "app_agent_create",
+            serde_json::json!({"destination":relay,"owner":owner,"agentType":"pi","name":"Custody round trip"}),
+        )
+        .await;
+        let pubkey = created["pubkey"]
+            .as_str()
+            .expect("created public key")
+            .to_owned();
+        assert_eq!(created["type"], "pi");
+        assert_eq!(
+            invoke(
+                &mut ws,
+                2,
+                "app_agent_set_picture",
+                serde_json::json!({"pubkey":pubkey,"relay":relay,"picture":"https://example.test/default-avatar.png"}),
+            )
+            .await,
+            Value::Null
+        );
+        assert_eq!(
+            invoke(
+                &mut ws,
+                3,
+                "app_agent_claim",
+                serde_json::json!({"pubkey":pubkey,"revision":0}),
+            )
+            .await,
+            Value::Bool(true),
+            "runner acquires custody before its turn"
+        );
+        let published = invoke(
+            &mut ws,
+            4,
+            "app_agent_publish",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"event":{"kind":9,"content":"agent reply","tags":[]}}),
+        )
+        .await;
+        assert_eq!(published["content"], "agent reply");
+        assert_eq!(published["pubkey"], pubkey);
+        assert_eq!(
+            invoke(
+                &mut ws,
+                5,
+                "app_agent_release",
+                serde_json::json!({"pubkey":pubkey}),
+            )
+            .await,
+            Value::Null
+        );
+        assert_eq!(
+            crate::app_agents::app_agent_claim(app.state(), pubkey, Some(0))
+                .await
+                .expect("released custody can be claimed"),
+            true,
+            "release relinquishes custody"
+        );
+        crate::app_agents::app_agent_release(
+            app.state(),
+            created["pubkey"].as_str().unwrap().into(),
+        );
+        let request_heads = tokio::time::timeout(Duration::from_secs(5), response.heads())
+            .await
+            .expect("publish request recorded");
+        assert_eq!(request_heads.len(), 1);
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("agent bridge close deadline")
+            .expect("close agent bridge socket");
+    }
+
+    #[tokio::test]
+    async fn agent_tool_commands_round_trip_through_bridge() {
+        use base64::Engine as _;
+        use sha2::{Digest as _, Sha256};
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+
+        let community = crate::federated_identity::testing::community(false).await;
+        let blob = b"tiny";
+        let media_hash = format!("{:x}", Sha256::digest(blob));
+        let response = community.serve_dynamic(7, move |head, body| {
+            let path = head.split_whitespace().nth(1).expect("request path");
+            let answer = match path {
+                "/query" => crate::federated_identity::testing::reply(
+                    "200 OK",
+                    r#"[{"id":"query-event","kind":9,"content":"read"}]"#,
+                ),
+                "/events" => {
+                    let event: Value = serde_json::from_slice(body).expect("signed event");
+                    crate::federated_identity::testing::reply(
+                        "200 OK",
+                        &serde_json::json!({"accepted":true,"event_id":event["id"]}).to_string(),
+                    )
+                }
+                "/upload" => crate::federated_identity::testing::reply(
+                    "200 OK",
+                    r#"{"url":"https://community.test/media/receipt"}"#,
+                ),
+                "/profiles/search" => crate::federated_identity::testing::reply(
+                    "200 OK",
+                    r#"[{"id":"profile-event","kind":0}]"#,
+                ),
+                path if path.starts_with("/media/") => format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    blob.len(),
+                    String::from_utf8_lossy(blob),
+                ),
+                _ => panic!("unexpected agent tool request: {head}"),
+            };
+            answer
+        });
+        let relay = community.origin.origin().ascii_serialization();
+        let owner = community.host.viewer().await.expect("owner identity");
+        let temp = tempfile::tempdir().expect("agent storage directory");
+        let credentials = Arc::new(AgentTestCredentials(std::sync::Mutex::default()));
+        let agents = crate::app_agents::AppAgentHost::new(
+            Ok(temp.path().join("agents.json")),
+            Err("unused legacy agent store".into()),
+            true,
+            crate::federated_identity::agent::AgentTokens::unconfigured(),
+        )
+        .with_credentials_for_test(credentials);
+        let app = mock_builder()
+            .manage(community.host.clone())
+            .manage(community.fi.clone())
+            .manage(agents)
+            .build(mock_context(noop_assets()))
+            .expect("headless agent tool app");
+        let adapter = Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 39)))
+            .await
+            .expect("agent tool auth deadline")
+            .expect("auth");
+
+        async fn invoke(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            command: &str,
+            value: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(
+                    id,
+                    command,
+                    serde_json::json!({"kind":"json","value":value}),
+                )),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} send deadline"))
+            .unwrap_or_else(|_| panic!("{command} send"));
+            let frame = tokio::time::timeout(Duration::from_secs(10), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("{command} response deadline"))
+                .expect("response frame")
+                .expect("response decode");
+            let Message::Text(frame) = frame else {
+                panic!("expected {command} response, got {frame:?}")
+            };
+            let response: Value = serde_json::from_str(frame.as_str()).expect("JSON response");
+            assert_eq!(response["type"], "invoke_ok", "{command}: {response}");
+            assert_eq!(response["id"], id);
+            response["payload"].clone()
+        }
+        let created = invoke(
+            &mut ws,
+            1,
+            "app_agent_create",
+            serde_json::json!({"destination":relay,"owner":owner,"agentType":"pi","name":"Tool-path agent"}),
+        )
+        .await;
+        let pubkey = created["pubkey"].as_str().expect("agent pubkey").to_owned();
+        assert_eq!(
+            invoke(
+                &mut ws,
+                2,
+                "app_agent_claim",
+                serde_json::json!({"pubkey":pubkey,"revision":0}),
+            )
+            .await,
+            Value::Bool(true)
+        );
+
+        let filters = vec![serde_json::json!({"kinds":[9],"limit":1})];
+        let desktop_query = crate::app_agents::app_agent_query(
+            app.state(),
+            pubkey.clone(),
+            relay.clone(),
+            filters.clone(),
+        )
+        .await
+        .expect("desktop-equivalent agent query");
+        let queried = invoke(
+            &mut ws,
+            3,
+            "app_agent_query",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"filters":filters}),
+        )
+        .await;
+        assert_eq!(queried, desktop_query);
+        assert_eq!(queried[0]["id"], "query-event");
+        assert_eq!(queried[0]["kind"], 9);
+        let desktop_query_error = crate::app_agents::app_agent_query(
+            app.state(),
+            pubkey.clone(),
+            relay.clone(),
+            Vec::new(),
+        )
+        .await
+        .expect_err("desktop refuses an empty query");
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            ws.send(invoke_text(
+                11,
+                "app_agent_query",
+                serde_json::json!({"kind":"json","value":{"pubkey":pubkey,"relay":relay,"filters":[]}}),
+            )),
+        )
+        .await
+        .expect("invalid query send deadline")
+        .expect("invalid query send");
+        let error_frame = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("invalid query response deadline")
+            .expect("invalid query response")
+            .expect("decode invalid query response");
+        let Message::Text(error_frame) = error_frame else {
+            panic!("expected invalid query error frame, got {error_frame:?}")
+        };
+        let error_frame: Value = serde_json::from_str(error_frame.as_str()).expect("error JSON");
+        assert_eq!(error_frame["type"], "invoke_err");
+        assert_eq!(error_frame["error"], desktop_query_error);
+        let remembered = invoke(
+            &mut ws,
+            4,
+            "app_agent_remember",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"slug":"core","body":"remembered fact","after":0}),
+        )
+        .await;
+        assert_eq!(remembered["kind"], 30174);
+        assert_eq!(remembered["pubkey"], pubkey);
+        let upload = invoke(
+            &mut ws,
+            5,
+            "app_agent_upload",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"data":base64::engine::general_purpose::STANDARD.encode(blob),"mime":"image/png"}),
+        )
+        .await;
+        assert_eq!(upload["url"], "https://community.test/media/receipt");
+        let media = invoke(
+            &mut ws,
+            6,
+            "app_agent_media",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"url":format!("{media_hash}.png")}),
+        )
+        .await;
+        assert_eq!(media["type"], "image/png");
+        assert_eq!(media["size"], blob.len());
+        assert_eq!(
+            media["data"],
+            base64::engine::general_purpose::STANDARD.encode(blob)
+        );
+        let git = invoke(
+            &mut ws,
+            7,
+            "app_agent_git_auth",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"owner":owner,"repo":"example-repo"}),
+        )
+        .await;
+        assert!(git["url"].as_str().unwrap().contains("/example-repo.git"));
+        assert!(git["header"]
+            .as_str()
+            .unwrap()
+            .starts_with("Authorization: Nostr "));
+        let profiles = invoke(
+            &mut ws,
+            8,
+            "app_agent_search_profiles",
+            serde_json::json!({"pubkey":pubkey,"relay":relay,"query":"example","limit":5}),
+        )
+        .await;
+        assert_eq!(profiles[0]["id"], "profile-event");
+        assert_eq!(
+            invoke(
+                &mut ws,
+                9,
+                "app_agent_publish_profile",
+                serde_json::json!({"pubkey":pubkey,"relay":relay,"force":true}),
+            )
+            .await,
+            Value::Null
+        );
+        assert_eq!(
+            invoke(
+                &mut ws,
+                10,
+                "app_agent_release",
+                serde_json::json!({"pubkey":pubkey}),
+            )
+            .await,
+            Value::Null
+        );
+        assert!(
+            crate::app_agents::app_agent_claim(app.state(), pubkey.clone(), Some(0))
+                .await
+                .expect("released agent can be claimed again")
+        );
+        crate::app_agents::app_agent_release(app.state(), pubkey);
+        let heads = tokio::time::timeout(Duration::from_secs(5), response.heads())
+            .await
+            .expect("all bounded tool requests served");
+        assert_eq!(heads.len(), 7);
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("tool bridge close deadline")
+            .expect("close tool bridge");
+    }
+
+    #[tokio::test]
+    async fn direct_message_open_success_round_trips_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+        let community = crate::federated_identity::testing::community(false).await;
+        let origin = community.origin.origin().ascii_serialization();
+        let peer = nostr::key::Keys::generate().public_key().to_hex();
+        let channel_id = "11111111-1111-4111-8111-111111111111";
+        let server = community.serve_dynamic(2, move |_, body| {
+            let event: Value = serde_json::from_slice(body).expect("posted direct-message event");
+            let receipt = serde_json::json!({
+                "accepted": true,
+                "event_id": event["id"],
+                "message": format!("response:{}", serde_json::json!({"channel_id":channel_id})),
+            });
+            crate::federated_identity::testing::reply("200 OK", &receipt.to_string())
+        });
+        let app = mock_builder()
+            .manage(crate::identity::IdentityHost::fixture())
+            .manage(community.fi.clone())
+            .build(mock_context(noop_assets()))
+            .expect("headless direct-message app");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let peers = vec![peer];
+        let desktop = crate::relay::relay_direct_message(
+            app.state(),
+            app.state(),
+            origin.clone(),
+            peers.clone(),
+        )
+        .await
+        .expect("desktop-equivalent successful direct-message open");
+        assert_eq!(desktop, channel_id);
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 21)))
+            .await
+            .expect("DM auth send deadline")
+            .expect("auth");
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            ws.send(invoke_text(
+                1,
+                "relay_direct_message",
+                serde_json::json!({"kind":"json","value":{"community":origin,"pubkeys":peers}}),
+            )),
+        )
+        .await
+        .expect("DM invoke send deadline")
+        .expect("DM invoke");
+        let message = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("DM response deadline")
+            .expect("DM response frame")
+            .expect("DM response decode");
+        let Message::Text(message) = message else {
+            panic!("expected DM JSON response, got {message:?}")
+        };
+        let message: Value = serde_json::from_str(message.as_str()).expect("JSON response");
+        assert_eq!(message["type"], "invoke_ok");
+        assert_eq!(message["id"], 1);
+        assert_eq!(message["payload"], desktop);
+        let requests = tokio::time::timeout(Duration::from_secs(5), server.heads())
+            .await
+            .expect("direct-message relay fixture deadline");
+        assert_eq!(requests.len(), 2);
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("DM bridge close deadline")
+            .expect("close DM bridge socket");
+    }
+
+    #[tokio::test]
+    async fn relay_writer_and_keep_awake_commands_round_trip_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+        let app = mock_builder()
+            .manage(crate::identity::IdentityHost::fixture())
+            .manage(crate::federated_identity::FederatedIdentity::unconfigured())
+            .manage(crate::keep_awake::KeepAwake::default())
+            .build(mock_context(noop_assets()))
+            .expect("headless writer fixture");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let template = || crate::identity::EventTemplate {
+            kind: 9,
+            created_at: 1_700_000_000,
+            content: "bridge writer proof".into(),
+            tags: Vec::new(),
+        };
+        let desktop_event =
+            crate::relay::relay_sign(app.state(), "https://relay.example".into(), template())
+                .await
+                .expect("desktop-equivalent relay signer");
+        let claims = serde_json::json!([{
+            "id": desktop_event["id"],
+            "pubkey": desktop_event["pubkey"],
+            "sig": desktop_event["sig"]
+        }]);
+        let desktop_claims =
+            serde_json::from_value::<Vec<crate::relay::SignatureClaim>>(claims.clone())
+                .expect("signature claims deserialize");
+        let desktop_verified = crate::relay::relay_verify_signatures(desktop_claims)
+            .await
+            .expect("desktop-equivalent signature verifier");
+        let desktop_awake = crate::keep_awake::keep_awake_set(app.state(), false)
+            .expect("desktop-equivalent keep-awake release");
+
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 18)))
+            .await
+            .expect("writer auth send deadline")
+            .expect("auth");
+        let calls = [
+            (
+                1,
+                "relay_sign",
+                serde_json::json!({"kind":"json","value":{"community":"https://relay.example","event":template()}}),
+                serde_json::to_value(desktop_event).unwrap(),
+            ),
+            (
+                2,
+                "relay_verify_signatures",
+                serde_json::json!({"kind":"json","value":{"claims":claims}}),
+                serde_json::to_value(desktop_verified).unwrap(),
+            ),
+            (
+                3,
+                "keep_awake_set",
+                serde_json::json!({"kind":"json","value":{"hold":false}}),
+                serde_json::to_value(desktop_awake).unwrap(),
+            ),
+        ];
+        for (id, command, body, expected) in calls {
+            tokio::time::timeout(
+                Duration::from_secs(2),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} invoke send deadline"))
+            .unwrap_or_else(|_| panic!("{command} invoke send"));
+            let response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+                .await
+                .unwrap_or_else(|_| panic!("{command} response deadline"))
+                .expect("response frame")
+                .expect("response decode");
+            let Message::Text(response) = response else {
+                panic!("expected {command} JSON response, got {response:?}")
+            };
+            let response: Value = serde_json::from_str(response.as_str()).expect("JSON response");
+            assert_eq!(response["type"], "invoke_ok", "{command}");
+            assert_eq!(response["id"], id, "{command}");
+            if command == "relay_sign" {
+                for field in ["content", "created_at", "id", "kind", "pubkey", "tags"] {
+                    assert_eq!(
+                        response["payload"][field], expected[field],
+                        "relay_sign {field}"
+                    );
+                }
+                assert!(
+                    response["payload"]["sig"].as_str().is_some(),
+                    "relay_sign returns a signature"
+                );
+            } else {
+                assert_eq!(response["payload"], expected, "{command}");
+            }
+        }
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("writer bridge close deadline")
+            .expect("close writer bridge socket");
+    }
+
+    #[tokio::test]
+    async fn relay_http_request_used_by_writer_publish_round_trips_through_bridge() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        use tauri::Manager as _;
+        let community = crate::federated_identity::testing::community(false).await;
+        let response = crate::federated_identity::testing::reply(
+            "200 OK",
+            r#"{"accepted":true,"event_id":"bridge-event"}"#,
+        );
+        let server = community.serve(vec![response.clone(), response]);
+        let event_body = serde_json::json!({
+            "id":"bridge-event", "pubkey":"01".repeat(32), "kind":9,
+            "created_at":1_700_000_000, "content":"outbox publish", "tags":[]
+        })
+        .to_string();
+        let origin = community.origin.origin().ascii_serialization();
+        let app = mock_builder()
+            .manage(crate::identity::IdentityHost::fixture())
+            .manage(community.fi.clone())
+            .build(mock_context(noop_assets()))
+            .expect("headless relay HTTP fixture");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let desktop = crate::relay::relay_http(
+            app.state(),
+            app.state(),
+            origin.clone(),
+            "/events".into(),
+            "POST".into(),
+            Some(event_body.clone()),
+            None,
+        )
+        .await
+        .expect("desktop-equivalent GET");
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 19)))
+            .await
+            .expect("relay HTTP auth send deadline")
+            .expect("auth");
+        tokio::time::timeout(
+            Duration::from_secs(2),
+            ws.send(invoke_text(
+                1,
+                "relay_http",
+                serde_json::json!({"kind":"json","value":{"community":origin,"path":"/events","method":"POST","body":event_body,"id":null}}),
+            )),
+        )
+        .await
+        .expect("relay HTTP invoke send deadline")
+        .expect("relay HTTP invoke");
+        let message = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("relay HTTP response deadline")
+            .expect("relay HTTP response frame")
+            .expect("relay HTTP response decode");
+        let Message::Text(message) = message else {
+            panic!("expected relay HTTP JSON response, got {message:?}")
+        };
+        let message: Value = serde_json::from_str(message.as_str()).expect("JSON response");
+        assert_eq!(message["type"], "invoke_ok");
+        assert_eq!(message["id"], 1);
+        assert_eq!(message["payload"], serde_json::to_value(desktop).unwrap());
+        let heads = tokio::time::timeout(Duration::from_secs(5), server.heads())
+            .await
+            .expect("relay fixture served both direct and bridge requests");
+        assert_eq!(heads.len(), 2);
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("relay HTTP bridge close deadline")
+            .expect("close relay HTTP bridge socket");
+    }
+
+    #[tokio::test]
+    async fn relay_socket_commands_round_trip_and_channel_delivers_events() {
+        use futures_util::{SinkExt as _, StreamExt as _};
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let community = crate::federated_identity::testing::community(true).await;
+        let relay_url = format!("wss://{}", community.origin.authority());
+        let mut server = Some(community.serve_socket(|mut relay| async move {
+            // A burst from the relay exercises the continuous stream rather
+            // than only one callback at a time.
+            for data in ["burst-0", "burst-1", "burst-2"] {
+                relay
+                    .send(Message::text(format!(r#"["NOTICE","{data}"]"#)))
+                    .await
+                    .expect("send relay burst message");
+            }
+            // Several ordered client sends exercise the same production
+            // socket send queue as desktop.
+            for expected in ["send-0", "send-1", "send-2"] {
+                let sent = tokio::time::timeout(Duration::from_secs(5), relay.next())
+                    .await
+                    .expect("relay send frame deadline")
+                    .expect("relay send frame")
+                    .expect("relay send decode");
+                assert_eq!(sent, Message::text(format!(r#"["EVENT","{expected}"]"#)));
+            }
+            relay
+                .send(Message::text(r#"["NOTICE","after-send"]"#))
+                .await
+                .expect("send final relay message");
+            let _ = tokio::time::timeout(Duration::from_secs(5), relay.next()).await;
+        }));
+        struct RelayStop(Option<tokio::task::JoinHandle<String>>);
+        impl Drop for RelayStop {
+            fn drop(&mut self) {
+                if let Some(task) = self.0.take() {
+                    task.abort();
+                }
+            }
+        }
+        let mut server = RelayStop(server.take());
+        let app = mock_builder()
+            .manage(crate::federated_identity::socket::Sockets::default())
+            .manage(community.fi.clone())
+            .manage(community.host.clone())
+            .build(mock_context(noop_assets()))
+            .expect("headless relay socket app");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _bridge_stop) = bridge_port_with_adapter(Some(adapter)).await;
+        // Model the callback id allocated by the browser's Channel. It must
+        // survive connect and be used for every envelope on the stream.
+        let callback = CALLBACK_NAMESPACE_MIN + 1234;
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 20)))
+            .await
+            .expect("socket auth send deadline")
+            .expect("auth");
+
+        async fn invoke_result(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            command: &str,
+            body: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(5),
+                ws.send(invoke_text(id, command, body)),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{command} send deadline"))
+            .unwrap_or_else(|_| panic!("{command} send"));
+            for _ in 0..8 {
+                let message = tokio::time::timeout(Duration::from_secs(5), ws.next())
+                    .await
+                    .unwrap_or_else(|_| panic!("{command} response deadline"))
+                    .expect("response frame")
+                    .expect("response decode");
+                let Message::Text(text) = message else {
+                    continue;
+                };
+                let response: Value = serde_json::from_str(text.as_str()).expect("JSON frame");
+                if response["type"] == "invoke_ok" && response["id"] == id {
+                    return response["payload"].clone();
+                }
+                assert_ne!(response["type"], "invoke_err", "{command}: {response}");
+            }
+            panic!("{command} response was not observed within eight bridge frames");
+        }
+        let mode = invoke_result(
+            &mut ws,
+            1,
+            "relay_socket_connect",
+            serde_json::json!({"kind":"json","value":{"id":"11111111-1111-4111-8111-111111111111","relay":relay_url,"onEvent":format!("__CHANNEL__:{callback}")}}),
+        )
+        .await;
+        assert_eq!(mode, "native");
+        invoke_result(
+            &mut ws,
+            2,
+            "relay_socket_start",
+            serde_json::json!({"kind":"json","value":{"id":"11111111-1111-4111-8111-111111111111"}}),
+        )
+        .await;
+        let first = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("first callback deadline")
+            .expect("first callback")
+            .expect("first callback decode");
+        let Message::Text(first) = first else {
+            panic!("expected callback")
+        };
+        let first: Value = serde_json::from_str(first.as_str()).expect("callback JSON");
+        assert_eq!(first["type"], "callback");
+        assert_eq!(first["id"], callback);
+        assert_eq!(first["envelope"]["index"], 0);
+        assert_eq!(first["envelope"]["message"]["type"], "text");
+        assert_eq!(
+            first["envelope"]["message"]["data"],
+            r#"["NOTICE","burst-0"]"#
+        );
+        for (index, expected) in [(1, "burst-1"), (2, "burst-2")] {
+            let frame = tokio::time::timeout(Duration::from_secs(5), ws.next())
+                .await
+                .expect("burst callback deadline")
+                .expect("burst callback")
+                .expect("burst callback decode");
+            let Message::Text(frame) = frame else {
+                panic!("expected callback")
+            };
+            let frame: Value = serde_json::from_str(frame.as_str()).expect("callback JSON");
+            assert_eq!(frame["type"], "callback");
+            assert_eq!(frame["id"], callback, "delivery must use client Channel id");
+            assert_eq!(frame["envelope"]["index"], index);
+            assert_eq!(
+                frame["envelope"]["message"]["data"],
+                format!(r#"["NOTICE","{expected}"]"#)
+            );
+        }
+
+        for (invoke_id, data) in [(3, "send-0"), (4, "send-1"), (5, "send-2")] {
+            invoke_result(
+                &mut ws,
+                invoke_id,
+                "relay_socket_send",
+                serde_json::json!({"kind":"json","value":{"id":"11111111-1111-4111-8111-111111111111","data":format!(r#"["EVENT","{data}"]"#)}}),
+            )
+            .await;
+        }
+        let second = tokio::time::timeout(Duration::from_secs(5), ws.next())
+            .await
+            .expect("final callback deadline")
+            .expect("final callback")
+            .expect("final callback decode");
+        let Message::Text(second) = second else {
+            panic!("expected callback")
+        };
+        let second: Value = serde_json::from_str(second.as_str()).expect("callback JSON");
+        assert_eq!(second["id"], callback);
+        assert_eq!(second["envelope"]["index"], 3);
+        assert_eq!(
+            second["envelope"]["message"]["data"],
+            r#"["NOTICE","after-send"]"#
+        );
+
+        invoke_result(
+            &mut ws,
+            6,
+            "relay_socket_close",
+            serde_json::json!({"kind":"json","value":{"id":"11111111-1111-4111-8111-111111111111"}}),
+        )
+        .await;
+        let task = server.0.take().expect("relay task");
+        tokio::time::timeout(Duration::from_secs(5), task)
+            .await
+            .expect("relay shutdown deadline")
+            .expect("relay fixture join");
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .expect("socket bridge close deadline")
+            .expect("close socket bridge");
+    }
+
+    #[tokio::test]
     async fn authorized_plugin_directory_command_round_trips_and_denial_matches_dispatcher() {
         use tauri::test::{mock_builder, mock_context, noop_assets};
         use tauri::Manager as _;
@@ -2817,6 +4433,184 @@ mod tests {
             .expect("close");
     }
 
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn plugin_process_commands_round_trip_through_real_host_processes() {
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let temp = tempfile::tempdir().expect("process fixture directory");
+        let root = dunce::canonicalize(temp.path()).unwrap();
+        let credentials = crate::credential_service::tests::fixture();
+        let plugin_id = credentials
+            .agent
+            .agent_type
+            .split_once('/')
+            .expect("fixture agent plugin type")
+            .0
+            .to_owned();
+        let manager =
+            buzzodz_plugins::Manager::open(Some(root.join("registry")), "test", false).unwrap();
+        let source = root.join("process-plugin");
+        std::fs::create_dir(&source).unwrap();
+        std::fs::write(source.join("plugin.js"), "export function apply() {}\\n").unwrap();
+        std::fs::write(source.join("manifest.json"), serde_json::to_vec(&serde_json::json!({
+            "id":plugin_id, "name":"Bridge process", "apiVersion":1,
+            "host":{"processes":[{"id":"echo","program":"sh"},{"id":"cat","program":"cat"},{"id":"sleep","program":"sleep"}]}
+        })).unwrap()).unwrap();
+        buzzodz_plugins::sign_release(&source, &nostr::key::SecretKey::generate().to_secret_hex())
+            .unwrap();
+        let catalog = manager.install(&source).unwrap();
+        let revision = catalog
+            .plugins
+            .iter()
+            .find(|p| p.manifest.id == plugin_id)
+            .unwrap()
+            .revision
+            .clone();
+        manager.change("enable", &plugin_id).unwrap();
+        let app = mock_builder()
+            .manage(crate::PluginManager(Ok(manager)))
+            .manage(crate::host_process::HostProcesses::default())
+            .manage(credentials.service.clone())
+            .build(mock_context(noop_assets()))
+            .expect("headless process app");
+        let adapter = std::sync::Arc::new(crate::bridge_adapter::HostAdapter::new(
+            app.handle().clone(),
+        ));
+        let (port, _stop) = bridge_port_with_adapter(Some(adapter)).await;
+        let mut ws = ws_client(port, None).await;
+        tokio::time::timeout(Duration::from_secs(2), ws.send(auth_text("test-token", 31)))
+            .await
+            .unwrap()
+            .unwrap();
+
+        async fn invoke(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            id: u64,
+            cmd: &str,
+            value: Value,
+        ) -> Value {
+            tokio::time::timeout(
+                Duration::from_secs(3),
+                ws.send(invoke_text(
+                    id,
+                    cmd,
+                    serde_json::json!({"kind":"json","value":value}),
+                )),
+            )
+            .await
+            .unwrap_or_else(|_| panic!("{cmd} send deadline"))
+            .unwrap_or_else(|_| panic!("{cmd} send"));
+            loop {
+                let frame = tokio::time::timeout(Duration::from_secs(5), ws.next())
+                    .await
+                    .unwrap_or_else(|_| panic!("{cmd} response deadline"))
+                    .expect("frame")
+                    .expect("decode");
+                let Message::Text(frame) = frame else {
+                    continue;
+                };
+                let value: Value = serde_json::from_str(frame.as_str()).unwrap();
+                if value["id"] == id {
+                    if value["type"] == "invoke_ok" {
+                        return value["payload"].clone();
+                    }
+                    if value["type"] == "invoke_err" {
+                        return serde_json::json!({"error": value["error"]});
+                    }
+                }
+            }
+        }
+        async fn event(
+            ws: &mut WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
+            callback: u64,
+        ) -> Value {
+            loop {
+                let frame = tokio::time::timeout(Duration::from_secs(5), ws.next())
+                    .await
+                    .expect("process event deadline")
+                    .expect("process event")
+                    .expect("decode");
+                let Message::Text(frame) = frame else {
+                    continue;
+                };
+                let value: Value = serde_json::from_str(frame.as_str()).unwrap();
+                if value["type"] == "callback" && value["id"] == callback {
+                    return value["envelope"]["message"].clone();
+                }
+            }
+        }
+        let callback = CALLBACK_NAMESPACE_MIN;
+        let handle = invoke(&mut ws, 1, "plugin_host_process_spawn", serde_json::json!({
+            "id":plugin_id,"revision":revision,"processId":"echo","args":["-c","printf 'OUT\\n'; printf 'ERR\\n' >&2; exit 7"],"cwd":null,"env":null,"mcp":null,"protection":null,"agentCredential":false,"protectedAgent":null,"secrets":[],"onEvent":null
+        })).await;
+        assert!(handle.as_u64().is_some());
+        let mut output = Vec::new();
+        loop {
+            let message = event(&mut ws, callback).await;
+            output.push(message.clone());
+            if message["type"] == "exit" {
+                break;
+            }
+        }
+        assert!(
+            output
+                .iter()
+                .any(|event| event == &serde_json::json!({"type":"stdout","data":"OUT\n"})),
+            "events: {output:?}"
+        );
+        assert!(output
+            .iter()
+            .any(|event| event == &serde_json::json!({"type":"stderr","data":"ERR\n"})));
+        assert!(output
+            .iter()
+            .any(|event| event == &serde_json::json!({"type":"exit","code":7})));
+
+        let callback2 = CALLBACK_NAMESPACE_MIN + 1;
+        let tool_pubkey = credentials.agent.pubkey.clone();
+        let cat = invoke(&mut ws, 2, "plugin_host_process_spawn", serde_json::json!({
+            "id":plugin_id,"revision":revision,"processId":"cat","args":[],"cwd":null,"env":null,"mcp":null,"protection":null,"agentCredential":true,"protectedAgent":null,"secrets":[],"onEvent":null
+        })).await.as_u64().unwrap();
+        assert_eq!(invoke(&mut ws, 3, "plugin_host_process_bind_agent", serde_json::json!({"id":plugin_id,"handle":cat,"pubkey":tool_pubkey,"relay":crate::credential_service::tests::RELAY})).await, Value::Null);
+        assert!(invoke(&mut ws, 4, "plugin_host_process_tool_credential", serde_json::json!({"id":plugin_id,"handle":cat,"pubkey":tool_pubkey,"relay":crate::credential_service::tests::RELAY})).await.as_str().is_some());
+        assert_eq!(
+            invoke(
+                &mut ws,
+                5,
+                "plugin_host_process_write",
+                serde_json::json!({"id":plugin_id,"handle":cat,"data":"round-trip\\n","close":true})
+            )
+            .await,
+            Value::Null
+        );
+        let echoed = event(&mut ws, callback2).await;
+        assert_eq!(
+            echoed,
+            serde_json::json!({"type":"stdout","data":"round-trip\\n"})
+        );
+        let exit = event(&mut ws, callback2).await;
+        assert_eq!(exit["type"], "exit");
+
+        let sleeper = invoke(&mut ws, 6, "plugin_host_process_spawn", serde_json::json!({
+            "id":plugin_id,"revision":revision,"processId":"sleep","args":["30"],"cwd":null,"env":null,"mcp":null,"protection":null,"agentCredential":false,"protectedAgent":null,"secrets":[],"onEvent":null
+        })).await.as_u64().unwrap();
+        assert_eq!(
+            invoke(
+                &mut ws,
+                7,
+                "plugin_host_process_kill",
+                serde_json::json!({"id":plugin_id,"handle":sleeper})
+            )
+            .await,
+            Value::Null
+        );
+        let killed_exit = event(&mut ws, CALLBACK_NAMESPACE_MIN + 5).await;
+        assert_eq!(killed_exit["type"], "exit");
+        tokio::time::timeout(Duration::from_secs(2), ws.close(None))
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
     #[tokio::test]
     async fn channel_sink_delivers_envelope_then_raw_binary_frame_in_order() {
         let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0))
@@ -2893,7 +4687,6 @@ mod tests {
     #[tokio::test]
     async fn host_mcp_channel_reaches_real_bridge_client() {
         use tauri::test::{mock_builder, mock_context, noop_assets};
-        use tauri::Manager as _;
         let temp = tempfile::tempdir().unwrap();
         let root = dunce::canonicalize(temp.path()).unwrap();
         let manager =
@@ -2943,7 +4736,7 @@ mod tests {
             .await
             .expect("MCP auth deadline")
             .expect("auth");
-        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(5, "plugin_host_mcp_serve", serde_json::json!({"kind":"json","value":{"id":"bridge.mcp","revision":revision,"sharedSession":false}})))).await.expect("MCP serve invoke deadline").expect("invoke");
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(5, "plugin_host_mcp_serve", serde_json::json!({"kind":"json","value":{"id":"bridge.mcp","revision":revision,"sharedSession":false,"onEvent":format!("__CHANNEL__:{}",MAX_WIRE_ID - 17)}})))).await.expect("MCP serve invoke deadline").expect("invoke");
         let start = tokio::time::timeout(Duration::from_secs(2), ws.next())
             .await
             .expect("MCP serve response deadline")
@@ -2972,9 +4765,7 @@ mod tests {
         };
         let delivery: Value = serde_json::from_str(delivery.as_str()).unwrap();
         assert_eq!(delivery["type"], "callback");
-        assert!(delivery["id"]
-            .as_u64()
-            .is_some_and(|id| (CALLBACK_NAMESPACE_MIN..=MAX_WIRE_ID).contains(&id)));
+        assert_eq!(delivery["id"], MAX_WIRE_ID - 17);
         assert_eq!(delivery["envelope"]["index"], 0);
         assert_eq!(delivery["envelope"]["message"]["type"], "message");
         let forwarded: Value =
@@ -2982,14 +4773,19 @@ mod tests {
                 .unwrap();
         assert_eq!(forwarded["method"], "ping");
         let request_id = delivery["envelope"]["message"]["request"].as_u64().unwrap();
-        crate::host_mcp::plugin_host_mcp_reply(
-            app.state(),
-            "bridge.mcp".into(),
-            info["handle"].as_u64().unwrap(),
-            request_id,
-            None,
-        )
-        .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(6, "plugin_host_mcp_reply", serde_json::json!({"kind":"json","value":{"id":"bridge.mcp","handle":info["handle"],"request":request_id,"body":null}}))))
+            .await.expect("MCP reply invoke deadline").expect("MCP reply invoke");
+        let reply_response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+            .await
+            .expect("MCP reply response deadline")
+            .expect("MCP reply response")
+            .expect("decode");
+        let Message::Text(reply_response) = reply_response else {
+            panic!("expected MCP reply response: {reply_response:?}")
+        };
+        let reply_response: Value = serde_json::from_str(reply_response.as_str()).unwrap();
+        assert_eq!(reply_response["type"], "invoke_ok");
+        assert_eq!(reply_response["payload"], Value::Null);
         let http = tokio::time::timeout(Duration::from_secs(2), pending_http)
             .await
             .expect("MCP HTTP completion deadline")
@@ -3016,20 +4812,38 @@ mod tests {
         let second_request = second_delivery["envelope"]["message"]["request"]
             .as_u64()
             .unwrap();
-        crate::host_mcp::plugin_host_mcp_reply(
-            app.state(),
-            "bridge.mcp".into(),
-            info["handle"].as_u64().unwrap(),
-            second_request,
-            None,
-        )
-        .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(7, "plugin_host_mcp_reply", serde_json::json!({"kind":"json","value":{"id":"bridge.mcp","handle":info["handle"],"request":second_request,"body":null}}))))
+            .await.expect("second MCP reply invoke deadline").expect("second MCP reply invoke");
+        let reply_response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+            .await
+            .expect("second MCP reply response deadline")
+            .expect("second MCP reply response")
+            .expect("decode");
+        let Message::Text(reply_response) = reply_response else {
+            panic!("expected MCP reply response: {reply_response:?}")
+        };
+        let reply_response: Value = serde_json::from_str(reply_response.as_str()).unwrap();
+        assert_eq!(reply_response["type"], "invoke_ok");
+        assert_eq!(reply_response["payload"], Value::Null);
         let second_response = tokio::time::timeout(Duration::from_secs(2), second_http)
             .await
             .expect("second HTTP deadline")
             .unwrap()
             .unwrap();
         assert_eq!(second_response.status(), reqwest::StatusCode::ACCEPTED);
+        tokio::time::timeout(Duration::from_secs(2), ws.send(invoke_text(8, "plugin_host_mcp_close", serde_json::json!({"kind":"json","value":{"id":"bridge.mcp","handle":info["handle"]}}))))
+            .await.expect("MCP close invoke deadline").expect("MCP close invoke");
+        let close_response = tokio::time::timeout(Duration::from_secs(2), ws.next())
+            .await
+            .expect("MCP close response deadline")
+            .expect("MCP close response")
+            .expect("decode");
+        let Message::Text(close_response) = close_response else {
+            panic!("expected MCP close response: {close_response:?}")
+        };
+        let close_response: Value = serde_json::from_str(close_response.as_str()).unwrap();
+        assert_eq!(close_response["type"], "invoke_ok");
+        assert_eq!(close_response["payload"], Value::Null);
         tokio::time::timeout(Duration::from_secs(2), ws.close(None))
             .await
             .expect("MCP bridge close deadline")

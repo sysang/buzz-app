@@ -440,6 +440,16 @@ pub(crate) async fn relay_agent_memories_read<R: tauri::Runtime>(
 /// heads go there as they land. No overall deadline cuts a streamed read
 /// short: at worst its 64 requests each wait out a page, about ten minutes,
 /// until its view closes and cancels it.
+pub(crate) async fn relay_agent_memories_read_headless(
+    host: &IdentityHost,
+    fi: &FederatedIdentity,
+    community: String,
+    agent: String,
+    slug: Option<String>,
+) -> Result<Value> {
+    read_agent_memories(host, fi, community, agent, slug, None).await
+}
+
 async fn read_agent_memories(
     host: &IdentityHost,
     fi: &FederatedIdentity,
